@@ -18,6 +18,13 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name
 
 VERSION = "2.0.0"
 
+# Money is fixed-precision Decimal end to end: serialise as exact strings ("350.00"), never binary floats.
+from decimal import Decimal  # noqa: E402
+
+from fastapi.encoders import ENCODERS_BY_TYPE  # noqa: E402
+
+ENCODERS_BY_TYPE[Decimal] = str
+
 
 def create_app() -> FastAPI:
     s = get_settings()

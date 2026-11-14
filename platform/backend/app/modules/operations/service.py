@@ -184,7 +184,7 @@ def allocation_checks(db: Session, *, vehicle: Vehicle, driver: Driver | None, b
         if trip:
             q = q.where((OwnerOffer.trip_id == trip.id) | (OwnerOffer.trip_id.is_(None)))
         offer = db.execute(q.order_by(OwnerOffer.accepted_at.desc())).scalars().first()
-        _chk(r, "owner_acceptance", offer is not None and (driver is None or offer.driver_id == driver.id), "commercial",
+        _chk(r, "owner_acceptance", offer is not None and (driver is None or offer.driver_id == driver.id), "commercial_hard",
              "Owner accepted with this vehicle/driver" if offer else "Owner has not accepted this assignment")
 
     # --- customer commitments and credit

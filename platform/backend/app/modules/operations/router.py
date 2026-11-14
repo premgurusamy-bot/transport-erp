@@ -623,3 +623,23 @@ def negotiate(oid: uuid.UUID, body: NegotiateIn, p: Principal = Depends(require(
     write_audit(db, actor=p, action="owner_offer.negotiate", entity="owner_offer", entity_id=o.id,
                 after={"rate": body.negotiated_rate, "advance_pct": body.advance_pct}, reason=body.note)
     return to_dict(o)
+
+
+# ===================================================================== PTL consolidation
+class ConsolidationIn(BaseModel):
+    vehicle_id: uuid.UUID
+    booking_ids: list[uuid.UUID] | None = None
+    max_detour_pct: float = Field(20.0, ge=0, le=100)
+
+
+@router.post("/consolidation/proposals")
+def consolidation(body: ConsolidationIn, p: Principal = Depends(require("consolidation.plan")), db: Session = Depends(get_db)):
+    v = get_or_404(db, Vehicle, body.vehicle_id, "Vehicle")
+    return ops.consolidation_proposals(db, vehicle=v, candidate_ids=body.booking_ids, max_detour_pct=body.max_detour_pct)
+
+
+@router.get("/trips/{tid}/load-plan")
+def get_load_plan(tid: uuid.UUID, p: Principal = Depends(require("trip.read")), db: Session = Depends(get_db)):
+    t = get_or_404(db, Trip, tid, "Trip")
+    t.load_plan = ops.load_plan(db, t)
+    return t.load_plan

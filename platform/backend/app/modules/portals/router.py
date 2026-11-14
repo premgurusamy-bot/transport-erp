@@ -95,6 +95,9 @@ def c_book(body: CustomerBookingIn, p: Principal = Depends(require("portal.custo
     """Portal bookings must come from an accepted quotation (prices are never set by the customer)."""
     if not body.quotation_id:
         raise BlockedByRule("quote_required", "Please request a quotation first; bookings are created from accepted quotations")
+    q = db.get(Quotation, body.quotation_id)
+    if not q or q.customer_id != _cust(p):
+        raise NotFound("Quotation")  # never reveal other tenants' quotations
     body.customer_id = _cust(p)
     b = com.create_booking(db, p, body, via="portal", customer_scope=_cust(p))
     return _cust_booking_out(db, b)
