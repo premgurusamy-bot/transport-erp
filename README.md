@@ -1,3 +1,7 @@
+> **New: G ROAD LINES Transport Business Operating System (platform v2)** is in [`platform/`](platform/README.md) –
+> FastAPI + PostgreSQL backend, React PWA (ERP, control tower, customer/owner/vendor portals, website), Flutter Driver and
+> Management apps. This V1 Transport Agent ERP below is unchanged and continues to work; see `platform/docs/DATA_MIGRATION.md`.
+
 # G ROAD LINES – Transport Agent ERP (V1.0.0)
 
 A complete ERP for a transport agent: customers, transporters, vehicles, drivers, trips, freight, hire, trip expenses,

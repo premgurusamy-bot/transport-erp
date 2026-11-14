@@ -1,0 +1,91 @@
+# G ROAD LINES platform v2: backend tests, web typecheck/build, Flutter analyze/test/APK, dependency audit.
+name: platform
+
+on:
+  push:
+    paths: ["platform/**", ".github/workflows/platform.yml"]
+  pull_request:
+    paths: ["platform/**"]
+  workflow_dispatch:
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env: { POSTGRES_PASSWORD: postgres, POSTGRES_DB: groadlines_test }
+        ports: ["5432:5432"]
+        options: --health-cmd "pg_isready -U postgres" --health-interval 5s --health-retries 10
+    env:
+      GRL_DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/groadlines_test
+    defaults: { run: { working-directory: platform/backend } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.13" }
+      - run: sudo apt-get update && sudo apt-get install -y postgresql-client
+      - run: pip install -r requirements-dev.txt pip-audit
+      - run: ruff check app tests scripts
+      - name: Migrations apply cleanly
+        run: alembic upgrade head && alembic check
+      - run: pytest -q
+      - run: pip-audit -r requirements.txt || true
+
+  web:
+    runs-on: ubuntu-latest
+    defaults: { run: { working-directory: platform/web } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - run: npm ci
+      - run: npm run build
+      - run: npm audit --omit=dev || true
+
+  mobile:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with: { channel: stable }
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: 21 }
+      - name: Driver app
+        working-directory: platform/mobile/driver_app
+        run: flutter pub get && flutter analyze --no-fatal-infos && flutter test && flutter build apk --debug
+      - name: Management app
+        working-directory: platform/mobile/management_app
+        run: flutter pub get && flutter analyze --no-fatal-infos && flutter test && flutter build apk --debug
+      - uses: actions/upload-artifact@v4
+        with:
+          name: GRL-platform-APKs-DEBUG
+          path: |
+            platform/mobile/driver_app/build/app/outputs/flutter-apk/app-debug.apk
+            platform/mobile/management_app/build/app/outputs/flutter-apk/app-debug.apk
+
+  docker:
+    runs-on: ubuntu-latest
+    defaults: { run: { working-directory: platform } }
+    steps:
+      - uses: actions/checkout@v4
+      - name: Create CI .env (throwaway secrets)
+        run: |
+          cp .env.example .env
+          sed -i "s/change-me-strong-db-password/ci$(openssl rand -hex 12)/; s/change-me-to-a-long-random-secret-of-at-least-32-chars/$(openssl rand -hex 32)/; s/change-me-separate-backup-key/$(openssl rand -hex 20)/" .env
+      - run: docker compose build
+      - run: docker compose up -d
+      - name: Wait for API health through nginx
+        run: |
+          for i in $(seq 1 60); do curl -fsS http://localhost:8080/api/v1/health && exit 0; sleep 3; done
+          docker compose logs api; exit 1
+      - name: Seed and sign in
+        run: |
+          docker compose exec -T -e GRL_ADMIN_PASSWORD=CiOwner12345x api python -m app.seed --demo
+          curl -fsS -X POST http://localhost:8080/api/v1/auth/login -H 'content-type: application/json' \
+            -d '{"identifier":"owner@groadlines.local","password":"CiOwner12345x"}' | grep -q token
+          curl -fsS http://localhost:8080/ | grep -q 'id="root"'
+      - name: Encrypted backup inside container
+        run: docker compose exec -T api python scripts/backup.py --out /app/var/backups
+      - if: always()
+        run: docker compose logs --tail 100

@@ -1,0 +1,9 @@
+{
+  "name": "G ROAD LINES",
+  "short_name": "GRL",
+  "start_url": "/erp",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#0b4f8a",
+  "icons": [{ "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }]
+}
