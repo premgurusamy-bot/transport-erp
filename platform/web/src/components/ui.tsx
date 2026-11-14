@@ -119,7 +119,7 @@ export function Form({ fields, initial = {}, onSubmit, submitLabel = "Save", bus
       <ErrorBox error={err} />
       <div className="grid-form">
         {fields.map((f) => (
-          <label key={f.name} className={f.type === "textarea" ? "span2" : ""}>
+          <label key={f.name} data-field={f.name} className={f.type === "textarea" ? "span2" : ""}>
             <span>{f.label}{f.required && " *"}</span>
             {f.type === "select" ? (
               <select value={v[f.name] ?? ""} required={f.required} onChange={(e) => set(f.name, e.target.value)}>

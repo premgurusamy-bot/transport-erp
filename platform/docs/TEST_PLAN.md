@@ -32,11 +32,11 @@ self-approval, audit tamper detection, no secrets in audit/logs, role change rev
 upload validation & signed links, AI guardrails & budget cap, integrations reported as MOCK, public endpoints & honeypot,
 unverified godown blocks custody — **all PASS**.
 
-Totals: backend **29 passed**; web typecheck + build **pass**; browser smoke **0 errors** over 48 ERP screens + all portals +
-driver app; Flutter driver app **3 passed**, management app **2 passed**; `alembic check` **no drift**.
+Totals: backend **29 passed**; web typecheck + build **pass**; browser smoke **0 errors** over 49 ERP screens + all portals +
+driver app; browser UI click-through workflow (`web/e2e/workflow.cjs`: enquiry → quote → send → acceptance → booking → credit gate) **PASS**; Flutter driver app **3 passed**, management app **2 passed**; `alembic check` **no drift**.
 
 ## Not yet done (honest)
-- UI end-to-end tests that click through full workflows (only API-level E2E + screen smoke today).
+- UI click-through tests beyond the commercial workflow (dispatch/POD/finance are covered at API level).
 - Load/performance tests; accessibility audit; penetration test.
 - Docker image build/run (sandbox has no container network – X-19); Android APK build (needs Android SDK – CI job prepared).
 - Any real-world verification (see REAL_WORLD_PILOT.md). **No simulated test here is real-world verification.**
@@ -46,5 +46,6 @@ driver app; Flutter driver app **3 passed**, management app **2 passed**; `alemb
 cd platform/backend && .venv/bin/pytest -q                        # needs PostgreSQL; set GRL_DATABASE_URL to a TEST database
 cd platform/web && npx tsc --noEmit && npx vite build
 GRL_WEB=http://localhost:5173 node platform/web/e2e/smoke.cjs     # with API + web running and demo seed loaded
+GRL_WEB=http://localhost:5173 node platform/web/e2e/workflow.cjs
 cd platform/mobile/driver_app && flutter test
 ```

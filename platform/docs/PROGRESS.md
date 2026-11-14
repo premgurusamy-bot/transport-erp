@@ -13,13 +13,13 @@ _Last updated: 2026-11-14 (development session 1)._ Machine-readable state: `../
 - Flutter Driver App and Management App: analyze clean (info-level deprecation notices only) and tests pass.
 - Encrypted backup/restore scripts with verification; Docker compose; Windows PowerShell scripts; CI workflow.
 - Documentation set (this folder).
+- ERP screens added for attendance & leave, budget entry/submission, driver advances, vendor scorecards/approval, customer change-request queue, settlement creation, printable invoice and LR.
 
 ## Partially complete / known gaps (prioritised backlog in IMPLEMENTATION_PLAN.md)
 - Docker images and Android APKs not built in the sandbox (no container network / Android SDK) – must be done on target PC/CI.
 - Flutter Driver App uses label entry for package scans and the web upload API for photos; camera QR scanning/photo capture pending.
-- API-only (no ERP screen yet): attendance & leave entry, budget entry, driver advances, vendor scorecard entry, customer modification-request queue.
 - Route-deviation geofence, cross-dock/transshipment workflow, printable numbered outage paper forms, fleet KPI dashboard screen.
-- UI click-through E2E tests, load tests, accessibility audit, penetration test. MFA (optional).
+- More UI click-through tests (one commercial workflow automated so far), load tests, accessibility audit, penetration test. MFA (optional).
 - Tamil translation covers navigation, driver safety and website headline; full translation pending.
 
 ## Not started (by design)

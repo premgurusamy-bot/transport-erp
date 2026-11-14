@@ -16,7 +16,7 @@
 ## Remaining backlog (ordered)
 1. Build and run the Docker images on the target Windows PC / CI; run `alembic upgrade head` + seed there (X-19).
 2. Build signed release APKs (X-18); add camera-based QR scanning and photo capture to the Flutter Driver App (currently label entry + web upload).
-3. ERP screens for items that are API-only today: attendance/leave entry, budget entry, driver advances, vendor scorecard entry, customer modification-request queue.
+3. ~~ERP screens for API-only items (attendance/leave, budget entry, driver advances, vendor scorecard, change-request queue)~~ – done.
 4. Printable numbered paper outage forms (enquiry, booking, dispatch, trip, POD, fuel, expense, incident).
 5. Route-deviation geofencing and long-stoppage detection from GPS tracks.
 6. Cross-dock / transshipment workflow between verified facilities.

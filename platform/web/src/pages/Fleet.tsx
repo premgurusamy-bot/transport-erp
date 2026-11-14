@@ -176,6 +176,10 @@ function DriverPay({ driver, onClose }: { driver: any; onClose: () => void }) {
         { name: "rate", label: "Rate ₹", type: "number", required: true }, { name: "effective_from", label: "Effective from", type: "date", required: true },
         { name: "reason", label: "Reason", required: true }]} submitLabel="Propose rule (needs approval)"
         onSubmit={async (v) => { await post("/remuneration-rules", { driver_id: driver.id, ...v }); toast("Sent for approval"); reload(); }} />}
+      <h4>Advances</h4>
+      <Table rows={data?.advances} cols={[{ key: "created_at", label: "Date", date: true }, { key: "amount", label: "Amount", money: true }, { key: "purpose", label: "Purpose" }, { key: "status", label: "Status", badge: true }]} empty="No advances" />
+      {can("settlement.prepare") && <Form fields={[{ name: "amount", label: "Advance ₹", type: "number", required: true }, { name: "purpose", label: "Purpose", required: true }]}
+        submitLabel="Request advance (needs approval)" onSubmit={async (v) => { await post("/driver-advances", { driver_id: driver.id, ...v }); toast("Sent for approval"); reload(); }} />}
       <h4>Earnings</h4>
       <Table rows={data?.earnings} cols={[{ key: "created_at", label: "Date", date: true }, { key: "gross", label: "Gross", money: true }, { key: "status", label: "Status", badge: true },
         { key: "b", label: "Calculation", render: (r: any) => r.breakdown.map((l: any) => `${l.component}: ${l.formula}`).join("; ") },

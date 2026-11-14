@@ -23,12 +23,39 @@ export default function Supply() {
 
 function Vendors() {
   const { can } = useAuth();
-  return <ResourcePage title="Vendors" path="/masters/vendors" canWrite={can("vendor.write")}
+  const [sc, setSc] = useState<any>(null);
+  return <div className="stack"><VendorActions onPick={setSc} />{sc && <Scorecard vendor={sc} onClose={() => setSc(null)} />}<ResourcePage title="Vendors" path="/masters/vendors" canWrite={can("vendor.write")}
     note="Only approved vendors can be shortlisted for RFQs. Approval/suspension is done by a procurement approver."
     cols={[{ key: "code", label: "Code" }, { key: "name", label: "Name" }, { key: "categories", label: "Categories", render: (r: any) => (r.categories || []).join(", ") },
       { key: "approval_status", label: "Approval", badge: true }, { key: "score", label: "Score", render: (r: any) => r.score?.overall ?? "—" }]}
     fields={[{ name: "name", label: "Name", required: true }, { name: "phone", label: "Phone", type: "tel" }, { name: "email", label: "Email", type: "email" },
-      { name: "gstin", label: "GSTIN" }, { name: "pan", label: "PAN" }, { name: "address", label: "Address", type: "textarea" }]} />;
+      { name: "gstin", label: "GSTIN" }, { name: "pan", label: "PAN" }, { name: "address", label: "Address", type: "textarea" }]} /></div>;
+}
+
+function VendorActions({ onPick }: { onPick: (v: any) => void }) {
+  const { can } = useAuth();
+  const { data, reload } = useData(() => get("/masters/vendors"), []);
+  return (
+    <Card title="Vendor approval & scorecards" note="Scores: quality, price, punctuality, availability, safety, compliance, invoice accuracy, response (1-5).">
+      <Table rows={data} cols={[{ key: "name", label: "Vendor" }, { key: "approval_status", label: "Approval", badge: true }, { key: "score", label: "Overall", render: (r: any) => r.score?.overall ?? "—" },
+        { key: "a", label: "", render: (r: any) => <div className="row gap">
+          {can("vendor.write") && <Btn kind="ghost" onClick={() => onPick(r)}>Score</Btn>}
+          {can("procurement.approve") && <Btn kind="ghost" onClick={async () => { const st = r.approval_status === "approved" ? "suspended" : "approved"; const reason = prompt(`Reason to mark ${st}`);
+            if (reason) { await post(`/vendors/${r.id}/approval`, { status: st, reason }); reload(); } }}>{r.approval_status === "approved" ? "Suspend" : "Approve"}</Btn>}</div> }]} />
+    </Card>
+  );
+}
+
+function Scorecard({ vendor, onClose }: { vendor: any; onClose: () => void }) {
+  const dims = ["quality", "price", "punctuality", "availability", "safety", "compliance", "invoice_accuracy", "response"];
+  return (
+    <Modal title={`Score ${vendor.name}`} onClose={onClose}>
+      <Form fields={[...dims.map((d) => ({ name: d, label: d.replace("_", " "), type: "select" as const, required: true, options: ["1", "2", "3", "4", "5"].map((x) => ({ value: x, label: x })) })),
+        { name: "complaints", label: "Complaints this period", type: "number" }, { name: "note", label: "Note" }]}
+        initial={Object.fromEntries(dims.map((d) => [d, "3"]))}
+        onSubmit={async (v) => { await post(`/vendors/${vendor.id}/score`, Object.fromEntries(Object.entries(v).map(([k, x]) => [k, dims.includes(k) ? Number(x) : x]))); toast("Scored"); onClose(); }} />
+    </Modal>
+  );
 }
 
 function Procurement() {

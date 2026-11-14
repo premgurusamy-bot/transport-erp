@@ -68,10 +68,10 @@ web smoke `web/e2e/smoke.cjs` (W), Flutter tests (F).
 | 21 | Unmatched credit never treated as payment | match_one / confirm | Bank | — | C: wf6 | Done |
 | 22 | Credit profile, exposure without double counting, warn/block/exception | `commercial/credit.py` | Booking, Customers › Credit | credit.* | C: wf11 | Done |
 | 22 | Collections: ageing, priority, promises, disputes, polite reminders, statements | `/finance/collections*`, statement | Accounts › Collections, Portal | collections.write | — | Built |
-| 23 | Cash-flow forecast labelled, budget vs actual | `cashflow_forecast`, budgets | Accounts › Cash flow | cashflow.read | — | Built (budget entry UI pending; API ready) |
+| 23 | Cash-flow forecast labelled, budget vs actual | `cashflow_forecast`, budgets | Accounts › Cash flow | cashflow.read | — | Built |
 | 24 | GST/IRN/e-way/IT via authorised providers | adapters | — | — | — | Mock / Pending external |
 | 24,36 | Tally XML export; import with dry-run, exceptions, approval, reversal | `/finance/tally/*`, import batches | Accounts › Tally | accounts.* | — | Built |
-| 25 | Employees, attendance, leave, payroll (configurable statutory), exit revokes access | `people/router.py` | HR & SOP | hr.*, payroll.* | — | Partial (attendance/leave screens API-only) |
+| 25 | Employees, attendance, leave, payroll (configurable statutory), exit revokes access | `people/router.py` | HR & SOP | hr.*, payroll.* | — | Built |
 | 26 | Customer portal: enquiry/quote/booking/tracking/POD/invoices/statement/pay/complaints | `/portal/customer/*` | Customer portal | portal.customer | S/N | Done (payment gateway MOCK) |
 | 26 | Communication hub: consent, opt-out, caps, held sensitive messages | `core/notify.py` | Admin › Messages | — | S: OTP hidden | Done (delivery MOCK) |
 | 27 | Website Tamil/English, verified coverage only, enquiries → CRM | `/public/*` | Website | — | S: public | Done |

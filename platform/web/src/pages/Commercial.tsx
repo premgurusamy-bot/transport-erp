@@ -116,6 +116,22 @@ export function Bookings() {
   );
 }
 
+function ModRequests() {
+  const { can } = useAuth();
+  const { data, reload } = useData(() => (can("booking.read") ? get("/modification-requests") : Promise.resolve([])), []);
+  const open = (data || []).filter((m: any) => m.status === "requested");
+  if (!open.length) return null;
+  return (
+    <Card title={`Customer change requests (${open.length})`} note="A customer change is only a request until authorised and feasible.">
+      <Table rows={open} cols={[{ key: "kind", label: "Request" }, { key: "changes", label: "Changes", render: (r: any) => JSON.stringify(r.changes) }, { key: "reason", label: "Reason" },
+        { key: "created_at", label: "Received", date: true },
+        { key: "a", label: "", render: (r: any) => can("booking.write") && <div className="row gap">
+          <Btn onClick={async () => { const note = prompt("Decision note"); const ch = prompt("Charges ₹ (0 if none)", "0"); if (note) { try { await post(`/modification-requests/${r.id}/decide`, { approve: true, note, charges: Number(ch || 0) }); toast("Applied"); reload(); } catch (e: any) { toast(e.message, "red"); } } }}>Approve</Btn>
+          <Btn kind="danger" onClick={async () => { const note = prompt("Reason"); if (note) { await post(`/modification-requests/${r.id}/decide`, { approve: false, note }); reload(); } }}>Reject</Btn></div> }]} />
+    </Card>
+  );
+}
+
 function BookingList() {
   const { can } = useAuth();
   const nav = useNavigate();
@@ -126,6 +142,7 @@ function BookingList() {
   const accepted = useData(() => (can("quote.read") ? get("/quotations") : Promise.resolve([])), []);
   const L = lk.data;
   return (
+    <div className="stack"><ModRequests />
     <Card title="Bookings" actions={<>
       <select value={status} onChange={(e) => setStatus(e.target.value)}>
         <option value="">All</option>{["draft", "confirmed", "on_hold", "planned", "dispatched", "in_transit", "delivered", "pod_verified", "invoiced", "cancelled"].map((s) => <option key={s}>{s}</option>)}
@@ -159,7 +176,7 @@ function BookingList() {
           ]} initial={{ package_count: 1 }} onSubmit={async (v) => { const b = await post("/bookings", v); toast(`Booking ${b.code} created (draft)`); setCreating(false); nav(`/erp/bookings/${b.id}`); }} />
         </Modal>
       )}
-    </Card>
+    </Card></div>
   );
 }
 

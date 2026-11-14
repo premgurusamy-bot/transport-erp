@@ -11,12 +11,13 @@ export default function People() {
   return (
     <div className="stack">
       <SubNav items={[{ to: "/erp/people", label: "Checklists" }, { to: "/erp/people/sops", label: "SOP library" },
-        { to: "/erp/people/employees", label: "Employees", show: can("hr.read") }, { to: "/erp/people/payroll", label: "Payroll", show: can("payroll.prepare") || can("payroll.approve") }]} />
+        { to: "/erp/people/employees", label: "Employees", show: can("hr.read") }, { to: "/erp/people/attendance", label: "Attendance & leave", show: can("hr.write") }, { to: "/erp/people/payroll", label: "Payroll", show: can("payroll.prepare") || can("payroll.approve") }]} />
       <Routes>
         <Route index element={<Checklists />} />
         <Route path="sops" element={<Sops />} />
         <Route path="employees" element={<Employees />} />
         <Route path="payroll" element={<Payroll />} />
+        <Route path="attendance" element={<AttendanceLeave />} />
       </Routes>
     </div>
   );
@@ -95,5 +96,38 @@ function Payroll() {
       {data && <><p>Gross {inr(data.totals.gross)} · Net {inr(data.totals.net)} · PF {inr(data.totals.pf)} · ESI {inr(data.totals.esi)}</p>
         <Table rows={data.payslips} cols={[{ key: "employee_id", label: "Employee" }, { key: "days_payable", label: "Days" }, { key: "gross", label: "Gross", money: true }, { key: "net", label: "Net", money: true }]} /></>}
     </Card>
+  );
+}
+
+function AttendanceLeave() {
+  const emps = useData(() => get("/employees"), []);
+  const leave = useData(() => get("/leave"), []);
+  const [day, setDay] = useState(new Date().toISOString().slice(0, 10));
+  const mark = async (e: any, status: string) => {
+    try { await post("/attendance", { employee_id: e.id, day, status }); toast(`${e.name}: ${status}`); }
+    catch (x: any) {
+      const reason = x.code === "reason_required" ? prompt("Already marked - correction reason") : null;
+      if (reason) { await post("/attendance", { employee_id: e.id, day, status, correction_reason: reason }); toast("Corrected (audited)"); } else if (x.code !== "reason_required") toast(x.message, "red");
+    }
+  };
+  return (
+    <div className="stack">
+      <Card title="Attendance" note="Corrections need a reason and are audited." actions={<input type="date" value={day} onChange={(e) => setDay(e.target.value)} />}>
+        <Table rows={(emps.data || []).filter((e: any) => e.status === "active")} cols={[{ key: "name", label: "Employee" }, { key: "department", label: "Dept" },
+          { key: "m", label: "Mark", render: (e: any) => <div className="row gap wrap">{["present", "absent", "half_day", "leave", "field_duty"].map((st) =>
+            <Btn key={st} kind="ghost" onClick={() => mark(e, st)}>{st.replace("_", " ")}</Btn>)}</div> }]} />
+      </Card>
+      <Card title="Leave requests">
+        <Table rows={leave.data} cols={[{ key: "employee_id", label: "Employee", render: (r: any) => (emps.data || []).find((e: any) => e.id === r.employee_id)?.name || (r.driver_id ? "Driver" : "—") },
+          { key: "from_date", label: "From" }, { key: "to_date", label: "To" }, { key: "kind", label: "Kind" }, { key: "reason", label: "Reason" }, { key: "status", label: "Status", badge: true },
+          { key: "a", label: "", render: (r: any) => r.status === "requested" && <div className="row gap">
+            <Btn onClick={async () => { await post(`/leave/${r.id}/decide`, { approve: true }); leave.reload(); }}>Approve</Btn>
+            <Btn kind="danger" onClick={async () => { await post(`/leave/${r.id}/decide`, { approve: false }); leave.reload(); }}>Reject</Btn></div> }]} />
+        <Form fields={[{ name: "employee_id", label: "Employee", type: "select", options: (emps.data || []).map((e: any) => ({ value: e.id, label: e.name })), required: true },
+          { name: "from_date", label: "From", type: "date", required: true }, { name: "to_date", label: "To", type: "date", required: true },
+          { name: "kind", label: "Kind", type: "select", options: enumOpts("casual", "sick", "earned", "unpaid") }, { name: "reason", label: "Reason" }]}
+          submitLabel="Record leave request" onSubmit={async (v) => { await post("/leave", v); leave.reload(); }} />
+      </Card>
+    </div>
   );
 }

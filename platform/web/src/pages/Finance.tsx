@@ -290,6 +290,7 @@ function Reports() {
 }
 
 function Cash() {
+  const { can } = useAuth();
   const f = useData(() => get("/finance/reports/cashflow"), []);
   const [period, setPeriod] = useState(today().slice(0, 7));
   const bva = useData(() => get(`/finance/budgets/${period}/vs-actual`), [period]);
@@ -299,8 +300,12 @@ function Cash() {
         <Table rows={f.data?.weeks} cols={[{ key: "week_start", label: "Week of" }, { key: "inflow", label: "Expected in", money: true }, { key: "outflow", label: "Expected out", money: true },
           { key: "net", label: "Net", money: true }, { key: "cumulative_net", label: "Cumulative", money: true }]} />
       </Card>
-      <Card title="Budget vs actual" actions={<input type="month" value={period} onChange={(e) => setPeriod(e.target.value)} />}>
+      <Card title="Budget vs actual" note="Budgets are prepared by Accounts and approved by management." actions={<input type="month" value={period} onChange={(e) => setPeriod(e.target.value)} />}>
         <Table rows={bva.data?.rows} cols={[{ key: "area", label: "Area" }, { key: "budget", label: "Budget", money: true }, { key: "actual", label: "Actual", money: true }, { key: "variance", label: "Variance", money: true }]} />
+        {can("budget.write") && <><Form fields={[{ name: "area", label: "Area", type: "select", options: enumOpts("fleet", "operations", "marketing", "administration"), required: true },
+          { name: "category", label: "Category", required: true }, { name: "amount", label: "Amount ₹", type: "number", required: true }]}
+          submitLabel="Save budget line" onSubmit={async (v) => { await post("/finance/budgets", { period, ...v }); bva.reload(); toast("Saved"); }} />
+          <Btn kind="ghost" onClick={async () => { try { await post(`/finance/budgets/${period}/submit`); toast("Submitted for approval"); } catch (e: any) { toast(e.message, "red"); } }}>Submit {period} budget for approval</Btn></>}
       </Card>
     </div>
   );
