@@ -41,6 +41,7 @@ CONFIG_DEFAULTS: dict[str, object] = {
     "maintenance.intervals": {"service_km": 10000, "service_days": 90},
     "gps.stale_minutes": 15,
     "gps.long_stop_minutes": 60,
+    "gps.deviation_km": 25,
     "compliance.alert_days": [30, 15, 7, 1],
     "retention.days": {"gps_pings": 365, "notifications": 730, "camera_clips": 90},
     "notification.daily_cap_per_recipient": 10,

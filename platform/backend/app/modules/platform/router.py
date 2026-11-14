@@ -20,6 +20,7 @@ from app.core.errors import AppError, Forbidden, NotFound, Unauthorized
 from app.core.notify import queue
 from app.core.rbac import PERMISSIONS
 from app.core.security import (
+    new_totp_secret, seal, unseal, verify_totp,
     hash_password, mask, new_otp, new_token, otp_hash, password_problems, sign, token_hash, verify_password,
     verify_signature,
 )
@@ -39,6 +40,7 @@ class LoginIn(BaseModel):
     identifier: str = Field(min_length=3, max_length=160)  # email or phone
     password: str = Field(min_length=1, max_length=200)
     device: str | None = None
+    totp: str | None = Field(None, max_length=8)
 
 
 def _check_lockout(db: Session, ident: str):
@@ -73,6 +75,7 @@ def _me(user: User, p: Principal) -> dict:
         "vendor_id": str(user.vendor_id) if user.vendor_id else None,
         "driver_id": str(user.driver_id) if user.driver_id else None,
         "scope_trip_id": str(p.scope_trip_id) if p.scope_trip_id else None,
+        "mfa_enabled": bool(user.mfa_enabled),
     }
 
 
@@ -86,6 +89,15 @@ def login(body: LoginIn, request: Request, db: Session = Depends(get_db)):
     if not ok:
         db.commit()  # persist the failed attempt even though we raise
         raise Unauthorized("Wrong email/phone or password")
+    if user.mfa_enabled:
+        if not body.totp:
+            db.rollback()
+            raise AppError("mfa_required", "Enter the 6-digit code from your authenticator app", status=401)
+        if not verify_totp(unseal(user.mfa_secret_sealed), body.totp):
+            db.rollback()
+            db.add(LoginAttempt(identifier=ident, success=False, ip=request.client.host if request.client else None))
+            db.commit()
+            raise Unauthorized("Wrong authenticator code")
     token, sess = _issue_session(db, user, request, body.device)
     write_audit(db, actor=user, action="auth.login", entity="user", entity_id=user.id, ip=sess.ip)
     return {"token": token, "expires_at": sess.expires_at, "user": _me(user, principal_for_user(user, sess))}
@@ -157,6 +169,57 @@ def otp_verify(body: OtpVerifyIn, request: Request, db: Session = Depends(get_db
     token, sess = _issue_session(db, user, request, body.device, scope_trip_id=scope_trip)
     write_audit(db, actor=user, action="auth.login_otp", entity="user", entity_id=user.id)
     return {"token": token, "expires_at": sess.expires_at, "user": _me(user, principal_for_user(user, sess))}
+
+
+class MfaCodeIn(BaseModel):
+    code: str = Field(min_length=6, max_length=8)
+
+
+@router.post("/auth/mfa/setup")
+def mfa_setup(p: Principal = Depends(current_principal), db: Session = Depends(get_db)):
+    """Start TOTP enrolment: returns the secret once (scan as QR / type into an authenticator app). Not active until confirmed."""
+    user = db.get(User, p.user_id)
+    if user.mfa_enabled:
+        raise AppError("mfa_enabled", "Two-factor sign-in is already enabled")
+    secret = new_totp_secret()
+    user.mfa_secret_sealed = seal(secret)
+    label = (user.email or user.phone or "user").replace(" ", "")
+    return {"secret": secret, "otpauth_uri": f"otpauth://totp/G%20ROAD%20LINES:{label}?secret={secret}&issuer=G%20ROAD%20LINES&digits=6&period=30"}
+
+
+@router.post("/auth/mfa/enable")
+def mfa_enable(body: MfaCodeIn, p: Principal = Depends(current_principal), db: Session = Depends(get_db)):
+    user = db.get(User, p.user_id)
+    if not user.mfa_secret_sealed or not verify_totp(unseal(user.mfa_secret_sealed), body.code):
+        raise AppError("mfa_code", "Code does not match - check the phone's time and try again")
+    user.mfa_enabled = True
+    write_audit(db, actor=p, action="auth.mfa_enable", entity="user", entity_id=user.id)
+    return {"mfa_enabled": True}
+
+
+@router.post("/auth/mfa/disable")
+def mfa_disable(body: MfaCodeIn, p: Principal = Depends(current_principal), db: Session = Depends(get_db)):
+    user = db.get(User, p.user_id)
+    if not user.mfa_enabled or not verify_totp(unseal(user.mfa_secret_sealed), body.code):
+        raise AppError("mfa_code", "Valid current code required to disable two-factor sign-in")
+    user.mfa_enabled, user.mfa_secret_sealed = False, None
+    write_audit(db, actor=p, action="auth.mfa_disable", entity="user", entity_id=user.id)
+    return {"mfa_enabled": False}
+
+
+class MfaResetIn(BaseModel):
+    reason: str = Field(min_length=3)
+
+
+@router.post("/users/{user_id}/mfa-reset")
+def mfa_reset(user_id: uuid.UUID, body: MfaResetIn, p: Principal = Depends(require("users.manage")), db: Session = Depends(get_db)):
+    """Admin reset for a lost phone (identity must be verified in person). Revokes all sessions."""
+    u = get_or_404(db, User, user_id, "User")
+    u.mfa_enabled, u.mfa_secret_sealed = False, None
+    for s_ in db.execute(select(UserSession).where(UserSession.user_id == u.id, UserSession.revoked_at.is_(None))).scalars():
+        s_.revoked_at = utcnow()
+    write_audit(db, actor=p, action="user.mfa_reset", entity="user", entity_id=u.id, reason=body.reason)
+    return {"ok": True}
 
 
 @router.post("/auth/logout")

@@ -666,3 +666,62 @@ def resolve_grievance(gid: uuid.UUID, body: ResolveIn, p: Principal = Depends(re
     g.status, g.resolution, g.resolved_by = "resolved", body.resolution, p.user_id
     write_audit(db, actor=p, action="grievance.resolve", entity="grievance", entity_id=g.id, reason=body.resolution)
     return to_dict(g)
+
+
+# ===================================================================== fleet KPI dashboard
+@router.get("/fleet/kpis")
+def fleet_kpis(frm: date, to: date, p: Principal = Depends(require_any("fleet.read", "reports.read")), db: Session = Depends(get_db)):
+    """Per-vehicle cost/km, mileage, maintenance cost/km, revenue/km, utilisation, loaded/empty km, downtime and contribution.
+    Revenue/contribution come from trip profitability (ACTUAL when invoiced, ESTIMATED when not yet billed)."""
+    from app.modules.finance.models import Expense
+    from app.modules.finance.reports import trip_profitability
+    days = max(1, (to - frm).days + 1)
+    out = []
+    for v in db.execute(select(Vehicle).where(Vehicle.is_active.is_(True)).order_by(Vehicle.registration)).scalars():
+        trips = [t for t in db.execute(select(Trip).where(Trip.vehicle_id == v.id, Trip.actual_start.isnot(None))).scalars()
+                 if frm <= t.actual_start.date() <= to]
+        km = loaded = empty = Decimal("0")
+        revenue = contribution = Decimal("0")
+        on_trip_days = 0
+        estimated = False
+        for t in trips:
+            if t.start_odometer is not None and t.end_odometer is not None:
+                km += Decimal(t.end_odometer - t.start_odometer)
+            loaded += Decimal(t.loaded_km or 0)
+            empty += Decimal(t.empty_km or 0)
+            end = t.actual_end or t.closed_at or utcnow()
+            on_trip_days += max(1, (end.date() - t.actual_start.date()).days + 1)
+            pr = trip_profitability(db, t)
+            revenue += Decimal(pr["revenue"])
+            contribution += Decimal(pr["gross_contribution"])
+            estimated = estimated or pr["revenue_basis"].startswith("ESTIMATED")
+        fuel = list(db.execute(select(FuelEntry).where(FuelEntry.vehicle_id == v.id)).scalars())
+        fuel = [f for f in fuel if frm <= f.filled_at.date() <= to]
+        litres = sum((Decimal(f.litres) for f in fuel if not f.is_adblue), Decimal("0"))
+        fuel_cost = sum((Decimal(f.amount) for f in fuel), Decimal("0"))
+        kmpls = [Decimal(f.computed_kmpl) for f in fuel if f.computed_kmpl]
+        exp = [e for e in db.execute(select(Expense).where(Expense.vehicle_id == v.id, Expense.status.in_(("approved", "posted")))).scalars()
+               if frm <= e.expense_date <= to]
+        maint = sum((Decimal(e.amount) for e in exp if e.category in ("repair", "tyre")), Decimal("0"))
+        direct = sum((Decimal(e.amount) for e in exp), Decimal("0"))
+        downtime = 0
+        for j in db.execute(select(JobCard).where(JobCard.vehicle_id == v.id)).scalars():
+            s_, e_ = j.opened_at.date(), (j.completed_at or utcnow()).date()
+            a, b = max(s_, frm), min(e_, to)
+            if b >= a and j.status != "cancelled":
+                downtime += (b - a).days + 1
+
+        def per_km(x):
+            return str(money(x / km)) if km else None
+        out.append({
+            "vehicle": v.registration, "ownership": v.ownership, "trips": len(trips), "km": str(km), "loaded_km": str(loaded),
+            "empty_km": str(empty), "empty_pct": round(float(empty / (loaded + empty) * 100), 1) if (loaded + empty) else None,
+            "fuel_litres": str(litres), "fuel_cost": str(money(fuel_cost)), "avg_kmpl": str((sum(kmpls) / len(kmpls)).quantize(Decimal("0.01"))) if kmpls else None,
+            "baseline_kmpl": str(v.baseline_kmpl) if v.baseline_kmpl else None, "fuel_cost_per_km": per_km(fuel_cost),
+            "maintenance_cost": str(money(maint)), "maintenance_cost_per_km": per_km(maint), "direct_cost_per_km": per_km(direct),
+            "revenue": str(money(revenue)), "revenue_per_km": per_km(revenue), "gross_contribution": str(money(contribution)),
+            "utilisation_pct": round(min(on_trip_days, days) / days * 100, 1) if v.ownership == "own" else None,
+            "downtime_days": downtime, "revenue_basis": "includes ESTIMATED unbilled revenue" if estimated else "ACTUAL",
+        })
+    return {"from": str(frm), "to": str(to), "days": days, "vehicles": out,
+            "note": "Own-fleet fixed costs are not allocated to attached vehicles. Km from odometers of trips in the period."}

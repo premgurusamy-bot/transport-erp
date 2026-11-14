@@ -643,3 +643,37 @@ def get_load_plan(tid: uuid.UUID, p: Principal = Depends(require("trip.read")), 
     t = get_or_404(db, Trip, tid, "Trip")
     t.load_plan = ops.load_plan(db, t)
     return t.load_plan
+
+
+
+# ===================================================================== GPS track & transshipment
+@router.get("/trips/{tid}/track")
+def trip_track(tid: uuid.UUID, p: Principal = Depends(require("gps.view")), db: Session = Depends(get_db)):
+    from app.modules.operations.models import GpsPing
+    t = get_or_404(db, Trip, tid, "Trip")
+    pings = [{"lat": g.lat, "lng": g.lng, "source": g.source, "at": g.recorded_at, "speed": g.speed_kmph} for g in
+             db.execute(select(GpsPing).where(GpsPing.trip_id == t.id).order_by(GpsPing.recorded_at).limit(5000)).scalars()]
+    return {"corridor": ops.trip_corridor(db, t), "pings": pings,
+            "evaluation": ops.evaluate_track(db, t) if t.status in ("dispatched", "in_transit") else None,
+            "corridor_basis": "Straight lines between pickup/drop locations (no road geometry until a maps provider is connected)"}
+
+
+class TransshipIn(BaseModel):
+    trip_id: uuid.UUID
+    facility_id: uuid.UUID
+    package_count: int = Field(ge=0)
+    condition: str = Field("good", pattern="^(good|damaged|wet|open)$")
+    location: str | None = None
+    note: str | None = None
+    photo_document_ids: list[uuid.UUID] = []
+
+
+@router.post("/bookings/{bid}/transship")
+def post_transship(bid: uuid.UUID, body: TransshipIn, p: Principal = Depends(require("custody.write")), db: Session = Depends(get_db)):
+    from app.modules.masters.models import Facility
+    b = get_or_404(db, Booking, bid, "Booking", lock=True)
+    t = get_or_404(db, Trip, body.trip_id, "Trip", lock=True)
+    f = get_or_404(db, Facility, body.facility_id, "Facility")
+    g = ops.transship(db, p, booking=b, trip=t, facility=f, package_count=body.package_count, condition=body.condition,
+                      location=body.location, note=body.note, photo_ids=[str(x) for x in body.photo_document_ids])
+    return {"godown_entry": to_dict(g), "booking_status": b.status, "trip_status": t.status}

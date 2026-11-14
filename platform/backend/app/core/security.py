@@ -100,3 +100,33 @@ def mask(value: str | None, keep: int = 4) -> str | None:
     if len(value) <= keep:
         return "*" * len(value)
     return "*" * (len(value) - keep) + value[-keep:]
+
+
+# ---------------------------------------------------------------- TOTP (RFC 6238) for staff two-factor sign-in
+import struct  # noqa: E402
+
+
+def new_totp_secret() -> str:
+    return base64.b32encode(secrets.token_bytes(20)).decode().rstrip("=")
+
+
+def totp(secret: str, at: float | None = None, step: int = 30, digits: int = 6) -> str:
+    key = base64.b32decode(secret + "=" * (-len(secret) % 8))
+    counter = int((at if at is not None else time.time()) // step)
+    h = hmac.new(key, struct.pack(">Q", counter), hashlib.sha1).digest()
+    o = h[-1] & 0x0F
+    code = (struct.unpack(">I", h[o:o + 4])[0] & 0x7FFFFFFF) % (10 ** digits)
+    return str(code).zfill(digits)
+
+
+def verify_totp(secret: str, code: str, window: int = 1) -> bool:
+    now = time.time()
+    return any(hmac.compare_digest(totp(secret, now + i * 30), (code or "").strip()) for i in range(-window, window + 1))
+
+
+def seal(text: str) -> str:
+    return base64.b64encode(encrypt_bytes(text.encode())).decode()
+
+
+def unseal(blob: str) -> str:
+    return decrypt_bytes(base64.b64decode(blob)).decode()

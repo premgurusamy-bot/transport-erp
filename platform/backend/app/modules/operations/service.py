@@ -224,7 +224,7 @@ def create_trip(db: Session, actor, *, booking_ids: list[uuid.UUID], vehicle_id:
     for b in bookings:
         if b.status != "confirmed":
             raise BlockedByRule("booking_status", f"{b.code} must be confirmed (is {b.status})")
-        if db.execute(select(TripLoad).where(TripLoad.booking_id == b.id, TripLoad.status != "removed")).first():
+        if db.execute(select(TripLoad).where(TripLoad.booking_id == b.id, TripLoad.status.notin_(("removed", "transshipped")))).first():
             raise Conflict("already_planned", f"{b.code} is already on a trip")
     driver = db.get(Driver, driver_id) if driver_id else None
     checks = allocation_checks(db, vehicle=vehicle, driver=driver, bookings=bookings, planned_start=planned_start)
@@ -401,8 +401,92 @@ def record_ping(db: Session, *, vehicle_id, trip_id, source: str, lat: float, ln
         t = db.get(Trip, trip_id)
         if t and (t.last_ping_at is None or recorded_at >= t.last_ping_at):
             t.last_lat, t.last_lng, t.last_ping_at, t.last_ping_source = lat, lng, recorded_at, source
+        db.flush()
+        if t and t.status in ("dispatched", "in_transit"):
+            evaluate_track(db, t)
     db.flush()
     return p
+
+
+# ------------------------------------------------------------------ track monitoring (deviation / long stoppage)
+def _point_segment_km(p: tuple[float, float], a: tuple[float, float], b: tuple[float, float]) -> float:
+    """Distance from point p to segment a-b using a local equirectangular projection (good to <1% at trip scale)."""
+    import math as _m
+    lat0 = _m.radians((a[0] + b[0] + p[0]) / 3)
+    def xy(q):
+        return (_m.radians(q[1]) * _m.cos(lat0) * 6371.0, _m.radians(q[0]) * 6371.0)
+    (px, py), (ax, ay), (bx, by) = xy(p), xy(a), xy(b)
+    dx, dy = bx - ax, by - ay
+    L2 = dx * dx + dy * dy
+    t = 0.0 if L2 == 0 else max(0.0, min(1.0, ((px - ax) * dx + (py - ay) * dy) / L2))
+    cx, cy = ax + t * dx, ay + t * dy
+    return _m.hypot(px - cx, py - cy)
+
+
+def trip_corridor(db: Session, trip: Trip) -> list[tuple[float, float]]:
+    """Ordered waypoints: pickups in pickup order, then drops in drop order. Straight-line corridor (no road geometry yet)."""
+    loads = list(db.execute(select(TripLoad).where(TripLoad.trip_id == trip.id, TripLoad.status != "removed")).scalars())
+    pts = []
+    for tl in sorted(loads, key=lambda x: x.pickup_seq):
+        o = db.get(Location, db.get(Booking, tl.booking_id).origin_id)
+        if o and o.lat is not None:
+            pts.append((o.lat, o.lng))
+    for tl in sorted(loads, key=lambda x: x.drop_seq):
+        d = db.get(Location, db.get(Booking, tl.booking_id).destination_id)
+        if d and d.lat is not None:
+            pts.append((d.lat, d.lng))
+    out = []
+    for q in pts:
+        if not out or out[-1] != q:
+            out.append(q)
+    return out
+
+
+def corridor_distance_km(points: list[tuple[float, float]], lat: float, lng: float) -> float | None:
+    if not points:
+        return None
+    if len(points) == 1:
+        return haversine_km(points[0][0], points[0][1], lat, lng)
+    return min(_point_segment_km((lat, lng), points[i], points[i + 1]) for i in range(len(points) - 1))
+
+
+def evaluate_track(db: Session, trip: Trip) -> dict:
+    """Raise exceptions for route deviation (2 consecutive pings outside the corridor) and long stoppage
+    (no movement beyond the radius for longer than the configured minutes, unless a rest/waiting event explains it).
+    Alerts trigger human follow-up only - never automatic conclusions about the driver."""
+    cfg_dev = float(get_config(db, "gps.deviation_km") or 25)
+    long_min = int(get_config(db, "gps.long_stop_minutes"))
+    pings = list(db.execute(select(GpsPing).where(GpsPing.trip_id == trip.id).order_by(GpsPing.recorded_at.desc()).limit(40)).scalars())
+    result = {"deviation_km": None, "stopped_minutes": 0}
+    if not pings:
+        return result
+    corridor = trip_corridor(db, trip)
+    d0 = corridor_distance_km(corridor, pings[0].lat, pings[0].lng)
+    result["deviation_km"] = round(d0, 1) if d0 is not None else None
+    if d0 is not None and d0 > cfg_dev and len(pings) > 1:
+        d1 = corridor_distance_km(corridor, pings[1].lat, pings[1].lng)
+        if d1 is not None and d1 > cfg_dev:
+            raise_exception_task(db, kind="alert", severity="high", title=f"Route deviation on trip {trip.code}", entity="trip",
+                                 entity_id=trip.id, source="gps_monitor", owner_role="dispatcher",
+                                 detail=f"{d0:.1f} km from planned corridor (limit {cfg_dev} km, straight-line corridor). Call driver to confirm.")
+    radius_km = 0.3
+    anchor = pings[0]
+    oldest_still = anchor
+    for pg in pings[1:]:
+        if haversine_km(anchor.lat, anchor.lng, pg.lat, pg.lng) > radius_km:
+            break
+        oldest_still = pg
+    stopped = int((anchor.recorded_at - oldest_still.recorded_at).total_seconds() // 60)
+    result["stopped_minutes"] = stopped
+    if stopped >= long_min:
+        explained = db.execute(select(TripEvent).where(
+            TripEvent.trip_id == trip.id, TripEvent.event.in_(("rest_start", "waiting", "unloading", "loading_started", "arrived_drop", "arrived_pickup", "breakdown")),
+            TripEvent.occurred_at >= oldest_still.recorded_at - timedelta(minutes=10))).first()
+        if not explained:
+            raise_exception_task(db, kind="alert", severity="medium", title=f"Long stoppage on trip {trip.code}", entity="trip",
+                                 entity_id=trip.id, source="gps_monitor", owner_role="dispatcher",
+                                 detail=f"Stationary about {stopped} min at {anchor.lat:.4f},{anchor.lng:.4f} with no rest/waiting event. Check on driver welfare and cargo.")
+    return result
 
 
 def position(db: Session, vehicle_id, trip_id=None) -> dict:
@@ -535,7 +619,7 @@ def submit_pod(db: Session, actor, *, trip: Trip, booking: Booking, delivered_co
     db.add(TripEvent(trip_id=trip.id, booking_id=booking.id, event="delivered", occurred_at=pod.delivered_at, by_user=actor.user_id,
                      lat=lat, lng=lng, customer_visible=True, note=f"Delivered {delivered_count}/{booking.package_count}"))
     loads = list(db.execute(select(TripLoad).where(TripLoad.trip_id == trip.id, TripLoad.status != "removed")).scalars())
-    if all(x.status in ("delivered", "partial", "failed", "returned") for x in loads):
+    if all(x.status in ("delivered", "partial", "failed", "returned", "transshipped") for x in loads):
         trip.status, trip.actual_end = "delivered", pod.delivered_at
         v = db.get(Vehicle, trip.vehicle_id)
         v.status = "unloading"
@@ -552,8 +636,13 @@ def close_trip(db: Session, actor, trip: Trip, end_odometer: int | None) -> dict
         problems.append(f"Trip status is {trip.status} (must be delivered)")
     loads = list(db.execute(select(TripLoad).where(TripLoad.trip_id == trip.id, TripLoad.status != "removed")).scalars())
     for tl in loads:
-        pod = db.execute(select(ProofOfDelivery).where(ProofOfDelivery.booking_id == tl.booking_id)).scalar_one_or_none()
         b = db.get(Booking, tl.booking_id)
+        if tl.status == "transshipped":
+            # Leg ended with a recorded custody handover at a verified facility; POD comes on the final leg.
+            if open_blocking_tasks(db, "booking", b.id):
+                problems.append(f"{b.code}: open exception must be resolved")
+            continue
+        pod = db.execute(select(ProofOfDelivery).where(ProofOfDelivery.booking_id == tl.booking_id)).scalar_one_or_none()
         if not pod or pod.status != "verified":
             problems.append(f"{b.code}: POD not verified")
         if open_blocking_tasks(db, "booking", b.id):
@@ -595,7 +684,7 @@ def consolidation_proposals(db: Session, *, vehicle: Vehicle, candidate_ids: lis
     if candidate_ids:
         q = q.where(Booking.id.in_(candidate_ids))
     cands = [b for b in db.execute(q).scalars()
-             if not db.execute(select(TripLoad).where(TripLoad.booking_id == b.id, TripLoad.status != "removed")).first()]
+             if not db.execute(select(TripLoad).where(TripLoad.booking_id == b.id, TripLoad.status.notin_(("removed", "transshipped")))).first()]
     g = geom(vehicle)
     reserve = float(get_config(db, "ptl.capacity_reserve_pct")) / 100
     cap_w = g["payload_kg"] * (1 - reserve)
@@ -679,3 +768,40 @@ def consolidation_proposals(db: Session, *, vehicle: Vehicle, candidate_ids: lis
 
 def driving_date() -> date:
     return utcnow().date()
+
+
+# ------------------------------------------------------------------ cross-dock / transshipment
+def transship(db: Session, actor, *, booking: Booking, trip: Trip, facility, package_count: int, condition: str,
+              location: str | None = None, note: str | None = None, photo_ids: list | None = None):
+    """End this booking's leg at a VERIFIED facility with a counted custody handover. The booking returns to
+    'confirmed' so it can be planned on an onward trip; the consignment keeps its single LR and final POD."""
+    from app.modules.supply.models import GodownEntry
+    if not facility.verified:
+        raise BlockedByRule("facility_unverified", f"{facility.name} is not a verified facility; transshipment is not allowed there")
+    if trip.status not in ("dispatched", "in_transit"):
+        raise BlockedByRule("trip_status", f"Trip is {trip.status}; transshipment happens during an active trip")
+    tl = db.execute(select(TripLoad).where(TripLoad.trip_id == trip.id, TripLoad.booking_id == booking.id,
+                                           TripLoad.status.in_(("loaded", "planned")))).scalar_one_or_none()
+    if not tl:
+        raise AppError("not_on_trip", "Booking is not an active load on this trip")
+    if trip.trip_mode == "FTL":
+        raise BlockedByRule("ftl_transship", "FTL loads are exclusive door-to-door; rebook with customer consent to transship")
+    ev = record_custody(db, actor, booking=booking, trip=trip, event="godown_in", package_count=package_count, condition=condition,
+                        facility_id=facility.id, from_party=f"Trip {trip.code}", to_party=facility.name, note=note, photo_ids=photo_ids)
+    g = GodownEntry(code=next_number(db, "GRN-G", "GDN"), facility_id=facility.id, booking_id=booking.id, package_count=package_count,
+                    condition=condition, location=location, photo_document_ids=photo_ids or [])
+    db.add(g)
+    tl.status, tl.delivered_count = "transshipped", package_count
+    booking.status = "confirmed"
+    for pkg in db.execute(select(Package).where(Package.booking_id == booking.id)).scalars():
+        if pkg.status not in ("short", "damaged"):
+            pkg.status, pkg.godown_location = "in_godown", location
+    db.add(TripEvent(trip_id=trip.id, booking_id=booking.id, event="note", occurred_at=utcnow(), by_user=actor.user_id,
+                     customer_visible=True, note=f"Transferred at {facility.name} for onward movement"))
+    loads = list(db.execute(select(TripLoad).where(TripLoad.trip_id == trip.id, TripLoad.status != "removed")).scalars())
+    if all(x.status in ("delivered", "partial", "failed", "returned", "transshipped") for x in loads):
+        trip.status, trip.actual_end = "delivered", utcnow()
+    db.flush()
+    write_audit(db, actor=actor, action="booking.transship", entity="booking", entity_id=booking.id,
+                after={"trip": trip.code, "facility": facility.name, "count": package_count, "custody_event": str(ev.id)})
+    return g

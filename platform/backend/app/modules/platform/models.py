@@ -7,7 +7,7 @@ from datetime import datetime
 from decimal import Decimal
 
 from sqlalchemy import (
-    JSON, BigInteger, Boolean, DateTime, ForeignKey, Index, Integer, LargeBinary, Numeric, String, Text,
+    JSON, BigInteger, Boolean, DateTime, ForeignKey, Index, Integer, LargeBinary, Numeric, String, Text, text,
     UniqueConstraint,
 )
 from sqlalchemy.dialects.postgresql import ARRAY
@@ -43,6 +43,8 @@ class User(Base, IdMixin, TimestampMixin):
     access_valid_to: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     access_purpose: Mapped[str | None] = mapped_column(String(200))
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    mfa_secret_sealed: Mapped[str | None] = mapped_column(Text)  # TOTP secret, AES-GCM sealed
+    mfa_enabled: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"))
     roles: Mapped[list[Role]] = relationship(secondary="user_roles", lazy="selectin")
 
 

@@ -14,7 +14,7 @@ from app.core.audit import write_audit
 from app.core.crud import get_or_404, to_dict
 from app.core.db import utcnow
 from app.core.deps import Principal, current_principal, get_db, require
-from app.core.errors import AppError, BlockedByRule, Forbidden
+from app.core.errors import AppError, BlockedByRule, Conflict, Forbidden
 from app.core.resource import register_crud
 from app.core.services import get_config, next_number, on_approval, request_approval
 from app.modules.commercial.models import Booking, Enquiry, Quotation
@@ -360,7 +360,8 @@ def _apply_sync(db: Session, p: Principal, ev: SyncItem) -> dict:
     if ev.event_type == "paper_form":
         if not p.is_internal:
             raise Forbidden("Paper forms are entered by office staff")
-        return {"recorded": True, "form": pl.get("form_number"), "note": "Queued for supervisor review and reconciliation"}
+        validate_paper_form(db, pl)
+        return {"recorded": True, "form": pl.get("form_number"), "kind": pl.get("kind"), "note": "Queued for supervisor review and reconciliation"}
     trip = None
     if pl.get("trip_id"):
         trip = get_or_404(db, Trip, pl["trip_id"], "Trip")
@@ -405,3 +406,89 @@ def _apply_sync(db: Session, p: Principal, ev: SyncItem) -> dict:
 def run_jobs(p: Principal = Depends(require("settings.write")), db: Session = Depends(get_db)):
     from app.worker import run_all
     return run_all(db)
+
+
+
+# ===================================================================== outage paper forms (numbered, controlled)
+PAPER_FORMS = {
+    "enquiry": ["Date/time received", "Customer / prospect", "Contact name & phone", "FTL or PTL", "From", "To", "Goods & packages",
+                "Weight (kg)", "Pickup date", "Taken by"],
+    "booking": ["Date/time", "Customer", "Quotation no. / agreed rate", "Consignor", "Consignee & phone", "From", "To", "Goods",
+                "Packages", "Weight (kg)", "Declared value", "FTL / PTL (customer told it is shared?)", "Booked by"],
+    "dispatch": ["Date/time", "Vehicle no.", "Driver name & licence no.", "Booking / LR nos.", "Packages loaded (count)", "Seal no.",
+                 "Start odometer", "Pre-trip inspection OK? (list defects)", "E-way bill nos.", "Authorised by (name & sign)"],
+    "trip": ["Trip / vehicle", "Date/time", "Event (departed / arrived / delay / breakdown / rest)", "Place", "Odometer", "Remarks", "Driver sign"],
+    "pod": ["Booking / LR no.", "Date/time delivered", "Packages delivered / expected", "Condition (good / damaged / short)", "Receiver name",
+            "Receiver phone", "Receiver signature & stamp", "Remarks", "Driver sign"],
+    "fuel": ["Vehicle no.", "Date/time", "Odometer", "Litres", "Rate", "Amount", "Station", "Bill no.", "Full tank? (Y/N)", "Driver sign"],
+    "expense": ["Date", "Vehicle / trip", "Category (toll / hamali / parking / repair / other)", "Amount", "Vendor", "Bill no.",
+                "Paid by (driver cash / company)", "Submitted by"],
+    "incident": ["Date/time", "Place", "Vehicle / driver", "What happened", "People injured? (call 108/112 first)", "Cargo affected",
+                 "Police / authority ref.", "Witnesses", "Actions taken", "Reported by"],
+}
+
+
+def validate_paper_form(db: Session, pl: dict) -> None:
+    from app.modules.platform.models import NumberSequence
+    kind, number = pl.get("kind"), pl.get("form_number")
+    if kind not in PAPER_FORMS or not number:
+        raise AppError("form_number", "Paper form kind and number are required")
+    prefix = f"PF-{kind.upper()}-"
+    if not str(number).startswith(prefix) or not str(number)[len(prefix):].isdigit():
+        raise AppError("form_number", f"Form number must look like {prefix}00001")
+    n = int(str(number)[len(prefix):])
+    seq = db.get(NumberSequence, (f"PF-{kind.upper()}", "-"))
+    if not seq or n < 1 or n > seq.last:
+        raise BlockedByRule("form_not_issued", f"{number} was never issued - possible unauthorised form")
+    used = db.execute(select(SyncEvent).where(SyncEvent.event_type == "paper_form", SyncEvent.status != "rejected")).scalars()
+    if any((u.payload or {}).get("form_number") == number for u in used):
+        raise Conflict("form_used", f"{number} has already been entered")
+
+
+class PaperFormsIn(BaseModel):
+    kind: str
+    count: int = Field(10, ge=1, le=200)
+
+
+@router.post("/outage-forms")
+def issue_paper_forms(body: PaperFormsIn, p: Principal = Depends(require("controltower.read")), db: Session = Depends(get_db)):
+    """Reserve a numbered range and return a printable PDF. Each number can be entered once after recovery."""
+    from fastapi.responses import Response
+    from app.modules.finance.export import _pdf
+    if body.kind not in PAPER_FORMS:
+        raise AppError("kind", f"Kind must be one of {sorted(PAPER_FORMS)}")
+    numbers = [next_number(db, f"PF-{body.kind.upper()}", f"PF-{body.kind.upper()}", fy_bound=False) for _ in range(body.count)]
+    rows = []
+    for n in numbers:
+        rows.append([f"===== G ROAD LINES OUTAGE FORM {n} ({body.kind.upper()}) ====="])
+        rows += [[f"{f}: ____________________________________________"] for f in PAPER_FORMS[body.kind]]
+        rows.append(["No payments, statutory filings or credit approvals may be made on paper. Enter into the ERP after recovery."])
+        rows.append([""])
+    write_audit(db, actor=p, action="outage_forms.issue", entity="outage_form", entity_id=body.kind, after={"from": numbers[0], "to": numbers[-1]})
+    pdf = _pdf(f"Outage forms {body.kind} {numbers[0]} .. {numbers[-1]}", ["Field"], rows)
+    return Response(content=pdf, media_type="application/pdf", headers={"Content-Disposition": f'attachment; filename="GRL_outage_{body.kind}_{numbers[0]}.pdf"'})
+
+
+@router.get("/outage-forms/review")
+def paper_review(p: Principal = Depends(require("controltower.read")), db: Session = Depends(get_db)):
+    rows = db.execute(select(SyncEvent).where(SyncEvent.event_type == "paper_form").order_by(SyncEvent.occurred_at.desc())).scalars()
+    return [{"client_event_id": r.client_event_id, "status": r.status, "occurred_at": r.occurred_at, "received_at": r.received_at,
+             "payload": r.payload, "result": r.result} for r in rows]
+
+
+class PaperReviewIn(BaseModel):
+    approve: bool
+    note: str = Field(min_length=3)
+
+
+@router.post("/outage-forms/review/{cid}")
+def paper_review_decide(cid: str, body: PaperReviewIn, p: Principal = Depends(require("controltower.read")), db: Session = Depends(get_db)):
+    r = db.get(SyncEvent, cid)
+    if not r or r.event_type != "paper_form":
+        raise AppError("not_found", "Form entry not found", status=404)
+    if r.user_id == p.user_id:
+        raise Forbidden("A supervisor other than the person who entered the form must review it", code="self_approval")
+    r.status = "applied" if body.approve else "rejected"
+    r.result = {**(r.result or {}), "review": {"by": str(p.user_id), "note": body.note, "approved": body.approve}}
+    write_audit(db, actor=p, action="outage_form.review", entity="outage_form", entity_id=cid, reason=body.note)
+    return {"status": r.status}

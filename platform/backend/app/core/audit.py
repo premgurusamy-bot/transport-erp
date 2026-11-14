@@ -15,7 +15,7 @@ from app.core.db import utcnow
 from app.modules.platform.models import AuditLog
 
 GENESIS = "0" * 64
-SENSITIVE_KEYS = {"password", "password_hash", "otp", "otp_hash", "token", "token_hash", "pin", "secret"}
+SENSITIVE_KEYS = {"password", "password_hash", "otp", "otp_hash", "token", "token_hash", "pin", "secret", "mfa_secret_sealed", "totp"}
 
 
 def _clean(v):
