@@ -19,7 +19,16 @@ if (-not (Test-Path ".env")) {
   Write-Host "Created .env with random secrets. Keep a copy of GRL_BACKUP_KEY somewhere safe (not on this PC only)." -ForegroundColor Green
 }
 docker compose up -d --build
-Start-Sleep -Seconds 10
+if ($LASTEXITCODE -ne 0) { Write-Host "Docker could not build/start the system. Is Docker Desktop running? See docs\DEPLOYMENT.md." -ForegroundColor Red; exit 1 }
+Write-Host "Waiting for the system to start (first time can take a few minutes)..."
+$ready = $false
+for ($i = 0; $i -lt 90; $i++) {
+  try { if ((Invoke-WebRequest -UseBasicParsing -TimeoutSec 5 "http://localhost:8080/api/v1/health").StatusCode -eq 200) { $ready = $true; break } } catch { }
+  Start-Sleep -Seconds 4
+}
+if (-not $ready) { Write-Host "The system did not start in time. Run: docker compose logs api   and send the last lines for help." -ForegroundColor Red; exit 1 }
 $demo = Read-Host "Load SYNTHETIC demo data for training? (y/N)"
-if ($demo -eq "y") { docker compose exec api python -m app.seed --demo } else { docker compose exec api python -m app.seed }
+if ($demo -eq "y") { docker compose exec -T api python -m app.seed --demo } else { docker compose exec -T api python -m app.seed }
+Write-Host "Write down the Owner password shown above (it is shown only once)." -ForegroundColor Yellow
 Write-Host "Open http://localhost:8080 . Install as an app: browser menu > Install G ROAD LINES." -ForegroundColor Green
+Start-Process "http://localhost:8080/login"
