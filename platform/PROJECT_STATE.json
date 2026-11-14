@@ -18,7 +18,6 @@
   ],
   "active_task": "None - session ended at a stable, committed state",
   "pending_tasks": [
-    "Confirm CI green on latest commit (Docker + APK jobs)",
     "Run Docker stack on target Windows PC",
     "Release APK signing key",
     "Live adapters as credentials arrive",
@@ -36,10 +35,11 @@
     "web": "tsc strict pass; vite build pass; browser smoke 0 errors (49 ERP screens + portals + driver app); UI workflow click-through PASS",
     "flutter_driver_app": "analyze: 1 info (material.dart deprecation in Flutter 3.50); 3 tests passed",
     "flutter_management_app": "analyze: 2 info; 2 tests passed",
-    "docker_build": "CI docker job (see latest platform workflow run)",
+    "docker_build": "SUCCESS in CI (images built, stack booted, seeded, login and encrypted backup verified)",
     "real_world_verification": "not started",
     "a11y": "axe: no serious/critical on 12 screens",
-    "load": "1000 req / 20 users: 0 errors, ~76 req/s on 4 vCPU sandbox"
+    "load": "1000 req / 20 users: 0 errors, ~76 req/s on 4 vCPU sandbox",
+    "ci": "GitHub Actions platform run 43607964611: backend, web, mobile (debug APKs), docker (build/boot/seed/login/backup) all SUCCESS"
   },
   "known_defects": [],
   "external_prerequisites": [

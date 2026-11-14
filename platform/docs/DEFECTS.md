@@ -8,8 +8,8 @@
 | DF-04 | OpenAPI generation | Medium | Generic CRUD schemas unresolved due to postponed annotations | Removed `from __future__ import annotations` in resource factory | PASS (342 operations at the time; 352 now) |
 | DF-05 | Review | Low | Vendor document upload accepted any entity id for vendor/PO | Upload now requires the vendor's own id / own PO | Covered by code review; no dedicated test yet |
 | DF-06 | Review | Low | Print stylesheet hid modal-based print documents | Visibility-based print CSS for `.print-doc` | Manual (browser print preview) |
-| DF-07 | CI (mobile) | High | Android package `in.groadlines.*` invalid – `in` is a Java keyword; APK build failed | Renamed to `com.groadlines.grl_driver` / `grl_management` | CI rerun |
-| DF-08 | CI (backend) | High | Restore failed when pg client (17) was newer than server (16): `SET transaction_timeout` rejected | Restore converts dump to SQL, strips unsupported settings, applies with `psql --single-transaction` | PASS locally; CI rerun |
+| DF-07 | CI (mobile) | High | Android package `in.groadlines.*` invalid – `in` is a Java keyword; APK build failed | Renamed to `com.groadlines.grl_driver` / `grl_management` | CI PASS |
+| DF-08 | CI (backend) | High | Restore failed when pg client (17) was newer than server (16): `SET transaction_timeout` rejected | Restore converts dump to SQL, strips unsupported settings, applies with `psql --single-transaction` | PASS locally and in CI |
 | DF-09 | a11y audit | Medium | Unlabelled filter selects/file inputs; low-contrast sidebar text; colour-only links | aria-labels, contrast, underlines, focus outline | axe PASS |
 
 Open defects: none known. Known gaps are tracked as backlog in `IMPLEMENTATION_PLAN.md` and `PROGRESS.md`, not as defects.

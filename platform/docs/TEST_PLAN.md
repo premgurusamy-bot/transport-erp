@@ -37,6 +37,9 @@ Backlog tests (`test_backlog.py`): route deviation & long stoppage, transshipmen
 Totals: backend **34 passed**; web typecheck + build **pass**; browser smoke **0 errors** over 49 ERP screens + all portals +
 driver app; browser UI click-through workflow (`web/e2e/workflow.cjs`: enquiry → quote → send → acceptance → booking → credit gate) **PASS**; Flutter driver app **3 passed**, management app **2 passed**; `alembic check` **no drift**.
 
+## CI (GitHub Actions)
+Run 43607964611 on commit 6c8e865: **backend, web, mobile (debug APKs for both apps), docker (build → boot → seed → login → encrypted backup) all SUCCESS.** The two earlier failures (Android package name, restore across PostgreSQL versions) are DF-07/DF-08.
+
 ## Not yet done (honest)
 - UI click-through tests beyond the commercial workflow (dispatch/POD/finance are covered at API level).
 - Penetration test.
