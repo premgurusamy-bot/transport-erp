@@ -44,5 +44,5 @@ Open the ERP address in Edge or Chrome → menu → *Install G ROAD LINES*. It o
 
 ## Verified here vs. pending
 Verified in the development sandbox: migrations on an empty database, API + web dev servers, all automated tests.
-**Not verified here:** building/running the Docker images (no container network in the sandbox – BLOCKERS X-19) and Android APK builds.
-Do both on the target PC/CI before the pilot.
+Docker images are built, booted, seeded, signed into and backed up in GitHub Actions on every push (`docker` job); debug APKs are built in the `mobile` job.
+Still to do: run the stack on the target Windows PC before the pilot. The API image runs 2 workers (`GRL_API_WORKERS`); with more than one worker the per-process login rate limiter should be replaced by a Redis-backed one.

@@ -11,6 +11,9 @@ Customer User · Attached Vehicle Owner · Vendor User · CA/External Auditor.
 - **CA/auditor** users require a purpose and an end date; access stops automatically at the end date.
 - Role changes, deactivation and employee exit revoke sessions immediately.
 
+## Two-step sign-in
+Each staff user can enable an authenticator-app code from the sidebar link **Enable 2-step**. Strongly recommended for the Owner/Director, Accounts and administrators. If a phone is lost, an administrator verifies the person's identity and uses **Admin › Users › Reset 2-step** (all sessions are signed out).
+
 ## Creating users
 Admin › Users › + User. Choose the role; link customer/owner/vendor/driver where required. Drivers sign in by phone OTP (no password).
 Passwords: 10+ characters with letters and digits. Ask users to change initial passwords.

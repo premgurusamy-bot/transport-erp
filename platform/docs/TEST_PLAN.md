@@ -32,13 +32,21 @@ self-approval, audit tamper detection, no secrets in audit/logs, role change rev
 upload validation & signed links, AI guardrails & budget cap, integrations reported as MOCK, public endpoints & honeypot,
 unverified godown blocks custody — **all PASS**.
 
-Totals: backend **29 passed**; web typecheck + build **pass**; browser smoke **0 errors** over 49 ERP screens + all portals +
+Backlog tests (`test_backlog.py`): route deviation & long stoppage, transshipment, fleet KPIs, outage forms (issued/used/unissued numbers, independent review), TOTP two-step — **all PASS**.
+
+Totals: backend **34 passed**; web typecheck + build **pass**; browser smoke **0 errors** over 49 ERP screens + all portals +
 driver app; browser UI click-through workflow (`web/e2e/workflow.cjs`: enquiry → quote → send → acceptance → booking → credit gate) **PASS**; Flutter driver app **3 passed**, management app **2 passed**; `alembic check` **no drift**.
 
 ## Not yet done (honest)
 - UI click-through tests beyond the commercial workflow (dispatch/POD/finance are covered at API level).
-- Load/performance tests; accessibility audit; penetration test.
-- Docker image build/run (sandbox has no container network – X-19); Android APK build (needs Android SDK – CI job prepared).
+- Penetration test.
+
+## Load test (sandbox, 4 vCPU, single API worker, PostgreSQL on same machine – indicative only)
+`scripts/load_test.py --users 20 --requests 1000`: 76 req/s, **0 errors**; p95: approvals 221 ms, bookings 406 ms, control tower 473 ms, trips 267 ms, trial balance 244 ms, enquiry create 825 ms (serialised numbering and audit-chain lock). Docker image runs 2 API workers by default. Repeat on the real server before go-live.
+
+## Accessibility
+`web/e2e/a11y.cjs` (axe-core, WCAG 2 A/AA) on website, login, 9 ERP screens and the customer portal: **no serious or critical violations** after fixes (labels on all selects/inputs, sidebar contrast, underlined text links, visible focus).
+- Docker image build/run and APK builds run in GitHub Actions (`.github/workflows/platform.yml`), not in the sandbox.
 - Any real-world verification (see REAL_WORLD_PILOT.md). **No simulated test here is real-world verification.**
 
 ## How to run
@@ -47,5 +55,7 @@ cd platform/backend && .venv/bin/pytest -q                        # needs Postgr
 cd platform/web && npx tsc --noEmit && npx vite build
 GRL_WEB=http://localhost:5173 node platform/web/e2e/smoke.cjs     # with API + web running and demo seed loaded
 GRL_WEB=http://localhost:5173 node platform/web/e2e/workflow.cjs
+GRL_WEB=http://localhost:5173 node platform/web/e2e/a11y.cjs
+cd platform/backend && .venv/bin/python scripts/load_test.py --users 20 --requests 1000
 cd platform/mobile/driver_app && flutter test
 ```

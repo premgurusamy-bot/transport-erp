@@ -35,6 +35,11 @@ Driver submits POD (OTP from consignee, or signature/photo). Short/damaged deliv
 **Verify POD** in the trip. Approve the trip's expenses (Accounts › Expenses). **Close trip** with end odometer – this releases the vehicle,
 ends temporary driver access and calculates driver pay from approved rules.
 
+## Exceptions on the road
+- **GPS alerts**: a vehicle far from its planned corridor (2 positions) or stationary for longer than the configured time without a rest/waiting event raises an exception for the dispatcher to call the driver. These are welfare/cargo checks, never automatic conclusions.
+- **Transshipment (PTL)**: on the trip, **Transship** a consignment at a *verified* facility with a counted handover; then plan its onward trip from Dispatch. The consignment keeps one LR and gets its POD on the final leg.
+- **Outage forms**: HR & SOP › Outage forms – download numbered paper forms before/at an outage; after recovery enter each form once (original time kept); a different supervisor marks it reconciled.
+
 ## Billing and money
 - **Accounts › Invoices** – bookings with verified POD appear under "Ready to bill"; select and **Generate invoice** (GST per configured rule). **Print** for a printable copy.
 - **Receipts** – record customer payments; they stay *unconfirmed* until matched with the bank statement.
@@ -46,6 +51,7 @@ ends temporary driver access and calculates driver pay from approved rules.
 - **Tally / migration** – export vouchers to Tally XML; import Tally XML (dry run → another user approves → commit; reversible).
 
 ## Fleet
+**Fleet › Fleet KPIs** shows per-vehicle km, empty %, km/l vs baseline, fuel/maintenance/direct cost per km, revenue per km, contribution, utilisation and downtime for any period.
 Vehicles, compliance documents and **renewals** (Owner/Director approves every renewal expense), safety defects (critical defects block
 dispatch until released by a different authorised person), fuel (anomalies go to review – never automatic deductions), maintenance,
 tyres, drivers (pay rules need approval), vehicle owners and load requests.

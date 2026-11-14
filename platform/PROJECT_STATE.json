@@ -1,6 +1,6 @@
 {
   "project": "G ROAD LINES Transport Business Operating System (platform v2)",
-  "last_updated": "2026-11-14T13:00:00+05:30",
+  "last_updated": "2026-11-14T20:45:00+05:30",
   "current_phase": "Phase 8 (integrations & hardening) - application built; live integrations and real-world pilot pending",
   "completed_tasks": [
     "P0 workspace inspection; V1 Node ERP preserved; platform/ structure and registers",
@@ -13,28 +13,33 @@
     "P7 HR/payroll/SOP/checklists, control tower, dashboards, profitability, AI gateway with 7 scoped assistants and budget caps, 8 marketing agents (template drafts)",
     "P8 offline idempotent sync, encrypted backup/restore with verification, Docker compose, Windows scripts, CI, Flutter Driver & Management apps",
     "Documentation set (20 documents) and traceability matrix",
-    "ERP screens: attendance/leave, budgets, driver advances, vendor scorecards, change-request queue, settlement creation, printable invoice/LR"
+    "ERP screens: attendance/leave, budgets, driver advances, vendor scorecards, change-request queue, settlement creation, printable invoice/LR",
+    "Session 2: GPS deviation/long-stoppage, transshipment, fleet KPIs, outage forms, TOTP 2-step, Flutter camera QR + POD photos, Tamil coverage, a11y fixes, load test, CI Docker job, CI fixes"
   ],
   "active_task": "None - session ended at a stable, committed state",
   "pending_tasks": [
-    "Build/run Docker images on target PC or CI (sandbox had no container network)",
-    "Build signed release APKs; add camera QR scanning and photo capture to Flutter Driver App",
-    "Printable numbered outage paper forms",
-    "Route-deviation geofence and long-stoppage detection; cross-dock/transshipment workflow",
-    "Fleet KPI dashboard screen",
-    "UI click-through E2E tests, load tests, accessibility audit, penetration test; optional MFA",
-    "Complete Tamil translations",
-    "Live adapters as credentials arrive (bank, GSP/e-way/IRN, SMS/WhatsApp/email, payment gateway, maps, GPS tracker, DVR, AI, social)",
-    "Phase 9 real-world pilot with the three own vehicles"
+    "Confirm CI green on latest commit (Docker + APK jobs)",
+    "Run Docker stack on target Windows PC",
+    "Release APK signing key",
+    "Live adapters as credentials arrive",
+    "Penetration test",
+    "Native-speaker Tamil review; translate internal ERP screens",
+    "Road-geometry corridors via maps provider",
+    "Redis-backed rate limiter for multi-worker deployments",
+    "Passkeys (optional)",
+    "More UI click-through tests",
+    "Phase 9 real-world pilot"
   ],
   "test_results": {
-    "backend_pytest": "29 passed (13 critical workflows + security/tenant/AI/upload/backup)",
+    "backend_pytest": "34 passed",
     "alembic_check": "no drift",
     "web": "tsc strict pass; vite build pass; browser smoke 0 errors (49 ERP screens + portals + driver app); UI workflow click-through PASS",
     "flutter_driver_app": "analyze: 1 info (material.dart deprecation in Flutter 3.50); 3 tests passed",
     "flutter_management_app": "analyze: 2 info; 2 tests passed",
-    "docker_build": "not run - no container network in sandbox",
-    "real_world_verification": "not started"
+    "docker_build": "CI docker job (see latest platform workflow run)",
+    "real_world_verification": "not started",
+    "a11y": "axe: no serious/critical on 12 screens",
+    "load": "1000 req / 20 users: 0 errors, ~76 req/s on 4 vCPU sandbox"
   },
   "known_defects": [],
   "external_prerequisites": [
@@ -58,5 +63,5 @@
     "X-18 APK signing",
     "X-19 container network for image build"
   ],
-  "next_action": "On the target Windows PC: run platform/scripts/setup-windows.ps1 (Docker Desktop), confirm the stack starts, then work through docs/REAL_WORLD_PILOT.md section A. In development: continue the backlog in docs/IMPLEMENTATION_PLAN.md from item 2."
+  "next_action": "Check latest CI run; then on the target Windows PC run scripts/setup-windows.ps1 and follow docs/REAL_WORLD_PILOT.md section A."
 }

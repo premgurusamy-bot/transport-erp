@@ -124,6 +124,156 @@
     }
    }
   },
+  "/api/v1/auth/mfa/setup": {
+   "post": {
+    "tags": [
+     "platform"
+    ],
+    "summary": "Mfa Setup",
+    "description": "Start TOTP enrolment: returns the secret once (scan as QR / type into an authenticator app). Not active until confirmed.",
+    "operationId": "mfa_setup_api_v1_auth_mfa_setup_post",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/auth/mfa/enable": {
+   "post": {
+    "tags": [
+     "platform"
+    ],
+    "summary": "Mfa Enable",
+    "operationId": "mfa_enable_api_v1_auth_mfa_enable_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/MfaCodeIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/auth/mfa/disable": {
+   "post": {
+    "tags": [
+     "platform"
+    ],
+    "summary": "Mfa Disable",
+    "operationId": "mfa_disable_api_v1_auth_mfa_disable_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/MfaCodeIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/users/{user_id}/mfa-reset": {
+   "post": {
+    "tags": [
+     "platform"
+    ],
+    "summary": "Mfa Reset",
+    "description": "Admin reset for a lost phone (identity must be verified in person). Revokes all sessions.",
+    "operationId": "mfa_reset_api_v1_users__user_id__mfa_reset_post",
+    "parameters": [
+     {
+      "name": "user_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "format": "uuid",
+       "title": "User Id"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/MfaResetIn"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
   "/api/v1/auth/logout": {
    "post": {
     "tags": [
@@ -6193,6 +6343,98 @@
     }
    }
   },
+  "/api/v1/trips/{tid}/track": {
+   "get": {
+    "tags": [
+     "operations"
+    ],
+    "summary": "Trip Track",
+    "operationId": "trip_track_api_v1_trips__tid__track_get",
+    "parameters": [
+     {
+      "name": "tid",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "format": "uuid",
+       "title": "Tid"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/bookings/{bid}/transship": {
+   "post": {
+    "tags": [
+     "operations"
+    ],
+    "summary": "Post Transship",
+    "operationId": "post_transship_api_v1_bookings__bid__transship_post",
+    "parameters": [
+     {
+      "name": "bid",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "format": "uuid",
+       "title": "Bid"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/TransshipIn"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
   "/api/v1/vehicles": {
    "get": {
     "tags": [
@@ -7705,6 +7947,58 @@
       }
      }
     },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/fleet/kpis": {
+   "get": {
+    "tags": [
+     "fleet"
+    ],
+    "summary": "Fleet Kpis",
+    "description": "Per-vehicle cost/km, mileage, maintenance cost/km, revenue/km, utilisation, loaded/empty km, downtime and contribution.\nRevenue/contribution come from trip profitability (ACTUAL when invoiced, ESTIMATED when not yet billed).",
+    "operationId": "fleet_kpis_api_v1_fleet_kpis_get",
+    "parameters": [
+     {
+      "name": "frm",
+      "in": "query",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "format": "date",
+       "title": "Frm"
+      }
+     },
+     {
+      "name": "to",
+      "in": "query",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "format": "date",
+       "title": "To"
+      }
+     }
+    ],
     "responses": {
      "200": {
       "description": "Successful Response",
@@ -12957,6 +13251,115 @@
       "content": {
        "application/json": {
         "schema": {}
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/outage-forms": {
+   "post": {
+    "tags": [
+     "intelligence"
+    ],
+    "summary": "Issue Paper Forms",
+    "description": "Reserve a numbered range and return a printable PDF. Each number can be entered once after recovery.",
+    "operationId": "issue_paper_forms_api_v1_outage_forms_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/PaperFormsIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/outage-forms/review": {
+   "get": {
+    "tags": [
+     "intelligence"
+    ],
+    "summary": "Paper Review",
+    "operationId": "paper_review_api_v1_outage_forms_review_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/outage-forms/review/{cid}": {
+   "post": {
+    "tags": [
+     "intelligence"
+    ],
+    "summary": "Paper Review Decide",
+    "operationId": "paper_review_decide_api_v1_outage_forms_review__cid__post",
+    "parameters": [
+     {
+      "name": "cid",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Cid"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/PaperReviewIn"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
        }
       }
      }
@@ -21744,6 +22147,18 @@
        }
       ],
       "title": "Device"
+     },
+     "totp": {
+      "anyOf": [
+       {
+        "type": "string",
+        "maxLength": 8
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Totp"
      }
     },
     "type": "object",
@@ -21772,6 +22187,35 @@
      "reason"
     ],
     "title": "LrAmendIn"
+   },
+   "MfaCodeIn": {
+    "properties": {
+     "code": {
+      "type": "string",
+      "maxLength": 8,
+      "minLength": 6,
+      "title": "Code"
+     }
+    },
+    "type": "object",
+    "required": [
+     "code"
+    ],
+    "title": "MfaCodeIn"
+   },
+   "MfaResetIn": {
+    "properties": {
+     "reason": {
+      "type": "string",
+      "minLength": 3,
+      "title": "Reason"
+     }
+    },
+    "type": "object",
+    "required": [
+     "reason"
+    ],
+    "title": "MfaResetIn"
    },
    "ModDecisionIn": {
     "properties": {
@@ -22606,6 +23050,45 @@
      "description"
     ],
     "title": "PRIn"
+   },
+   "PaperFormsIn": {
+    "properties": {
+     "kind": {
+      "type": "string",
+      "title": "Kind"
+     },
+     "count": {
+      "type": "integer",
+      "maximum": 200.0,
+      "minimum": 1.0,
+      "title": "Count",
+      "default": 10
+     }
+    },
+    "type": "object",
+    "required": [
+     "kind"
+    ],
+    "title": "PaperFormsIn"
+   },
+   "PaperReviewIn": {
+    "properties": {
+     "approve": {
+      "type": "boolean",
+      "title": "Approve"
+     },
+     "note": {
+      "type": "string",
+      "minLength": 3,
+      "title": "Note"
+     }
+    },
+    "type": "object",
+    "required": [
+     "approve",
+     "note"
+    ],
+    "title": "PaperReviewIn"
    },
    "PayIn": {
     "properties": {
@@ -24292,6 +24775,69 @@
      "recorded_at"
     ],
     "title": "TrackerPingIn"
+   },
+   "TransshipIn": {
+    "properties": {
+     "trip_id": {
+      "type": "string",
+      "format": "uuid",
+      "title": "Trip Id"
+     },
+     "facility_id": {
+      "type": "string",
+      "format": "uuid",
+      "title": "Facility Id"
+     },
+     "package_count": {
+      "type": "integer",
+      "minimum": 0.0,
+      "title": "Package Count"
+     },
+     "condition": {
+      "type": "string",
+      "pattern": "^(good|damaged|wet|open)$",
+      "title": "Condition",
+      "default": "good"
+     },
+     "location": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Location"
+     },
+     "note": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Note"
+     },
+     "photo_document_ids": {
+      "items": {
+       "type": "string",
+       "format": "uuid"
+      },
+      "type": "array",
+      "title": "Photo Document Ids",
+      "default": []
+     }
+    },
+    "type": "object",
+    "required": [
+     "trip_id",
+     "facility_id",
+     "package_count"
+    ],
+    "title": "TransshipIn"
    },
    "TripIn": {
     "properties": {

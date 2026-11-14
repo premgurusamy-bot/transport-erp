@@ -14,13 +14,14 @@
 | 9 Real-world verification | Pilot with 3 own vehicles | Not started (by design – after development) |
 
 ## Remaining backlog (ordered)
-1. Build and run the Docker images on the target Windows PC / CI; run `alembic upgrade head` + seed there (X-19).
-2. Build signed release APKs (X-18); add camera-based QR scanning and photo capture to the Flutter Driver App (currently label entry + web upload).
+1. ~~Docker images~~ – now built, booted, seeded and backed up in CI (`docker` job); still to be run on the target Windows PC.
+2. ~~Camera QR scanning and POD photo capture in the Flutter Driver App~~ – done; debug APKs built in CI. Release signing key still needed (X-18).
 3. ~~ERP screens for API-only items (attendance/leave, budget entry, driver advances, vendor scorecard, change-request queue)~~ – done.
-4. Printable numbered paper outage forms (enquiry, booking, dispatch, trip, POD, fuel, expense, incident).
-5. Route-deviation geofencing and long-stoppage detection from GPS tracks.
-6. Cross-dock / transshipment workflow between verified facilities.
-7. Fleet KPI dashboard (cost/km, mileage trend, downtime) as a dedicated screen (data available via reports).
-8. Load/performance tests and an accessibility audit.
+4. ~~Numbered outage paper forms~~ – done (issue PDF, single-use numbers, supervisor review).
+5. ~~Route-deviation and long-stoppage detection~~ – done (straight-line corridor until a maps provider is connected).
+6. ~~Cross-dock / transshipment~~ – done (verified facilities only; PTL only).
+7. ~~Fleet KPI dashboard~~ – done.
+8. ~~Load test and accessibility audit~~ – done (scripts in `backend/scripts/load_test.py`, `web/e2e/a11y.cjs`); repeat on target hardware.
 9. Live adapters as credentials arrive (X-01…X-13), each with a sandbox test before being marked LIVE.
-10. MFA/passkeys for staff (optional per brief).
+10. ~~MFA~~ – TOTP two-step sign-in done (passkeys not implemented).
+11. Remaining: live adapters (item 9), penetration test, native-speaker review of Tamil text, road-geometry corridors via maps provider, Redis-backed rate limiter for multi-worker deployments, bookings-list query optimisation (N+1) if volumes grow.

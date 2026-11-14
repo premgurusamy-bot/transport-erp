@@ -26,7 +26,7 @@ personal and salary data · GPS/camera data · documents/evidence · credentials
 | Backup theft | Backups AES-256-GCM encrypted with a separate key; integrity manifest; restore refuses tampered files and refuses to overwrite live DB without explicit flag | `scripts/backup.py`, `restore.py` | B |
 
 ## Not yet implemented / to do before production
-- MFA/passkeys for staff accounts (optional per brief, recommended for Owner/Accounts).
+- Passkeys (TOTP two-step sign-in is implemented; enable it for Owner/Accounts/admin users).
 - Malware scanning engine (ClamAV or provider) behind the existing upload hook.
 - Distributed rate limiting (Redis) if more than one API instance runs.
 - Penetration test and dependency audit sign-off (CI runs `pip-audit`/`npm audit` informationally).

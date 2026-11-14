@@ -10,7 +10,7 @@ Interactive docs (Swagger UI): **`/api/docs`** on any running server; machine-re
 - Every request is permission-checked on the server; hiding a button in the UI is never the control.
 - Idempotency: payments (`idempotency_key`), package scans and offline events (`client_event_id`) can be safely retried.
 
-## Endpoints (342 operations)
+## Endpoints (352 operations)
 
 ### platform
 `GET /api/v1/approvals` · `GET /api/v1/audit/verify` · `GET /api/v1/audit` · `GET /api/v1/auth/me` · `GET /api/v1/documents/{doc_id}/link` · `GET /api/v1/documents` · `GET /api/v1/files/{doc_id}` · `GET /api/v1/health` · `GET /api/v1/integrations` · `GET /api/v1/notifications/mine` · `GET /api/v1/notifications` · `GET /api/v1/roles` · `GET /api/v1/settings/{key}/history` · `GET /api/v1/settings` · `GET /api/v1/tasks` · `GET /api/v1/users` · `POST /api/v1/approvals/{approval_id}/decide` · `POST /api/v1/auth/change-password` · `POST /api/v1/auth/login` · `POST /api/v1/auth/logout` · `POST /api/v1/auth/otp/request` · `POST /api/v1/auth/otp/verify` · `POST /api/v1/documents/{doc_id}/review` · `POST /api/v1/documents` · `POST /api/v1/notifications/{nid}/approve` · `POST /api/v1/notifications/{nid}/read` · `POST /api/v1/tasks/{task_id}/assign` · `POST /api/v1/tasks/{task_id}/close` · `POST /api/v1/users/{user_id}/deactivate` · `POST /api/v1/users` · `PUT /api/v1/roles/{code}` · `PUT /api/v1/settings/{key}` · `PUT /api/v1/users/{user_id}/roles`

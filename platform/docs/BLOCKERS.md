@@ -22,4 +22,4 @@ Development has continued around every item below using MOCK adapters. None of t
 | X-16 | Real vehicle RC, permits, insurance, fitness, PUC, tax documents and driver licences | Dispatch gates will block until entered | Compliance coordinator | Pending |
 | X-17 | Professional verification of basement godown (approved use, fire, structure, access) | Any godown custody | Owner + professionals | Pending – blocked in system |
 | X-18 | Android SDK / signing key for release APKs | Installable signed APKs | Developer/Owner | Debug APK builds configured in CI; release signing key needed |
-| X-19 | Container network in build environment | Building Docker images | Developer | The development sandbox has no container DNS; images must be built on the Windows PC or CI (see DEPLOYMENT.md) |
+| X-19 | Container network in build environment | Building Docker images | Developer | Resolved via CI: images are built and booted in GitHub Actions. Still to be run on the target PC |

@@ -13,7 +13,7 @@ web smoke `web/e2e/smoke.cjs` (W), Flutter tests (F).
 | 5 | Temp attached-driver OTP, trip-scoped, auto-revoke | `/auth/otp/*`, TempDriverAccess | Driver app | driver.app | N: wf7 (revoked after close) | Done |
 | 5 | CA/auditor limited by purpose & period | User.access_valid_* , `ca.read` | Admin › Users | ca.read | — | Built |
 | 5 | Password hashing, lockout, rate limit, no secret logging | security.py, login attempts, middleware | Login | — | S: lockout, no secrets | Done |
-| 5 | MFA / passkeys | — | — | — | — | Pending (optional "may") |
+| 5 | MFA / passkeys | `/auth/mfa/*`, TOTP | My security, Admin › Reset 2-step | users.manage (reset) | backlog: TOTP | Done (TOTP; passkeys pending) |
 | 5,34 | Tamper-evident audit | `core/audit.py`, `/audit/verify` | Admin › Audit | audit.read | S: tamper detected | Done |
 | 5,34 | Maker-checker, no self-approval | `core/services.py` approvals | Approvals | per kind | C/N/S: multiple | Done |
 | 5 | Masking of bank/salary/identity | bank_out, emp_out, driver id masked | — | driver.view_sensitive, hr.view_salary | N: wf7 masked account | Done |
@@ -30,14 +30,14 @@ web smoke `web/e2e/smoke.cjs` (W), Flutter tests (F).
 | 9 | PTL consent, confidentiality, per-consignment LR/labels/POD | Booking.ptl_consent, Package labels, portal filters | Portal, Dispatch | — | N: wf4 | Done |
 | 9 | Consolidation engine (corridor, detour, windows, compatibility, capacity, reserve) | `operations/service.consolidation_proposals` | Dispatch › PTL proposals | consolidation.plan | N: wf4, incompatible goods | Done (straight-line distances, provisional) |
 | 9 | Configurable, versioned PTL cost allocation; estimated vs actual | `ptl.allocation_formula`, TripLoad est/actual | Trip profitability | settings.write | C: wf6 | Done |
-| 9 | Multi-stop, manifests, loading map, failed/partial delivery | trip loads seq, load_plan, POD partial | Trip detail | — | N: wf4 partial | Partial (no cross-dock/transshipment workflow) |
+| 9 | Multi-stop, manifests, loading map, failed/partial delivery | trip loads seq, load_plan, POD partial | Trip detail | — | N: wf4 partial | Done (transshipment via verified facilities) |
 | 10 | Vehicle states; allocation checks (legal/safety/commercial) | `allocation_checks` | Dispatch › Allocate | dispatch.plan | C: capacity/compliance/defect gates | Done |
 | 10 | Double-booking prevention; override with reason only for commercial | `blocking_failures` | Allocate modal | dispatch.override | C: wf5 | Done |
 | 10 | Dispatch plan: inspection, scans, LR/e-way, driver ack, authorisation | `dispatch_readiness`, `/dispatch` | Trip detail | dispatch.authorize | C: wf2 blocked until ready | Done |
-| 11 | Trip events, delay, ETA source, deviation/long stoppage | `/trips/{id}/events`, worker GPS staleness | Trip detail, Control tower | trip.update | C: wf3 delay | Partial (route-deviation geofence not implemented) |
+| 11 | Trip events, delay, ETA source, deviation/long stoppage | `/trips/{id}/events`, worker GPS staleness | Trip detail, Control tower | trip.update | C: wf3 delay | Done (straight-line corridor until maps provider) |
 | 11,15 | GPS phone primary, tracker failover, stale/last-known, never fabricated | `record_ping`, `position()`, tracker webhook | Trip, Control tower | gps.view | C: wf3 live | Done (tracker MOCK) |
 | 12 | Chain of custody, count/condition/seal exceptions block | `record_custody`, `scan_package` | Trip, Driver app | custody.write | N: wf4 wrong-trip scan | Done |
-| 12 | POD with OTP/signature/photo, partial, verification | `/pod/otp`, `/pod`, `/pod/{id}/verify` | Driver app, Trip | — | C: wf3, N: wf4 | Done (photo capture via upload API; Flutter camera pending) |
+| 12 | POD with OTP/signature/photo, partial, verification | `/pod/otp`, `/pod`, `/pod/{id}/verify` | Driver app, Trip | — | C: wf3, N: wf4 | Done (photos from Flutter camera + web upload) |
 | 13 | LR auto-numbered by FY, QR verify, amendments, cancellation | `operations/lr.py`, `/lr/*` | Booking › LR print | lr.write | C: wf1 LR number | Done |
 | 13 | E-way applicability/validity | `ensure_eway`, `eway_ok_for_dispatch` | Trip › E-way | lr.write | C: dispatch flow | Mock |
 | 13 | OCR labelled "extracted, not verified" | MockOcr, Document.extracted | Expenses | — | — | Mock |
@@ -51,7 +51,7 @@ web smoke `web/e2e/smoke.cjs` (W), Flutter tests (F).
 | 16 | Fuel with tank/odometer/duplicate/mileage anomaly → review only | `fuel_anomalies` | Fleet › Fuel | fleet.write | C: wf6 | Done |
 | 16 | Maintenance: preventive schedule, job cards, approvals, defects block | `/job-cards`, `/maintenance/due`, defects | Fleet › Maintenance/Defects | fleet.* | C: defect gate | Done |
 | 16 | Tyres/battery lifecycle, cost/km | `/tyres`, `/tyres/{id}/events` | Fleet › Tyres | fleet.write | — | Built |
-| 16,31 | KPIs cost/km, revenue/km, utilisation, loaded/empty km | trip profitability, close_trip km | Reports | reports.read | C: wf6 | Partial (fleet KPI dashboard not separate) |
+| 16,31 | KPIs cost/km, revenue/km, utilisation, loaded/empty km | trip profitability, close_trip km | Reports | reports.read | C: wf6 | Done (Fleet › Fleet KPIs) |
 | 17 | Owner KYC, acceptance with vehicle/driver identity, own-records portal | `/owner-offers`, `/portal/owner/*` | Fleet › Owners, Owner portal | owner.*, portal.owner | N: wf7 | Done |
 | 18 | Vendor master, scorecard, approval | `/masters/vendors`, `/vendors/{id}/score|approval` | Supply › Vendors | vendor.* | — | Built |
 | 18 | Procurement → RFQ → approval → PO → receipt → 3-way match | `supply/router.py` | Supply › Procurement, Vendor portal | procurement.* | — | Built |
@@ -84,8 +84,8 @@ web smoke `web/e2e/smoke.cjs` (W), Flutter tests (F).
 | 32 | Configurable approval matrix; Owner approval for compliance renewals | `approval.thresholds`, renewal flow | Settings | — | N: wf9 | Done |
 | 33 | AI gateway: providers, routing, fallback, budget/alerts, audit, scoped read-only tools | `intelligence/ai.py` | AI Assistants, portals, apps | ai.use, ai.admin | S: AI guardrails | Done (MOCK model; live adapters need keys) |
 | 35 | Backups encrypted, integrity checked, restore verified | `scripts/backup.py`, `restore.py` | — | — | B: wf13 | Done |
-| 35 | Paper/offline forms recorded with original time, supervisor review | `/sync/events` paper_form | — | sync.write | N: wf12 | Partial (no printable numbered paper forms yet) |
+| 35 | Paper/offline forms recorded with original time, supervisor review | `/sync/events` paper_form | — | sync.write | N: wf12 | Done (numbered forms, single use, supervisor review) |
 | 12/38 | Offline sync idempotent | `/sync/events` | Driver apps | sync.write | N: wf12, F | Done |
 | 41 | Settings with RBAC, effective dates, versions, audit | `/settings` | Admin › Settings | settings.* | S: settings versioned | Done |
-| 3 | Docker, environments, CI | Dockerfiles, compose, `.github/workflows/platform.yml` | — | — | — | Built (images not built in sandbox – see BLOCKERS) |
-| 4 | Flutter Driver & Management apps | `mobile/*` | — | — | F | Built (APK build needs Android SDK – CI) |
+| 3 | Docker, environments, CI | Dockerfiles, compose, `.github/workflows/platform.yml` | — | — | — | Built (images built and booted in CI) |
+| 4 | Flutter Driver & Management apps | `mobile/*` | — | — | F | Built (debug APKs built in CI) |

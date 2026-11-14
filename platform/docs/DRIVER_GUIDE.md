@@ -10,7 +10,7 @@ Attached/temporary drivers can sign in only while a trip is assigned; access end
 ## Before the trip
 1. Open the trip → **Accept trip & allow trip GPS**. Your location is shared only during this authorised trip.
 2. **Pre-trip inspection** – mark each item OK or Defect. A defect in brakes, steering, tyres, lights etc. stops the trip until the vehicle is repaired and released.
-3. At pickup tap **Arrived at pickup**. Scan (or type) the label on **every package** while loading. A package from another trip is flagged immediately.
+3. At pickup tap **Arrived at pickup**. Scan the label on **every package** while loading (camera button in the Android app, or type the label). A package from another trip is flagged immediately.
 4. The office authorises dispatch after loading, documents and checks are complete.
 
 ## On the road
