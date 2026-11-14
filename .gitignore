@@ -14,3 +14,10 @@ scratch/
 storage-test/
 storage/
 storage-perf/
+platform/backend/.venv/
+platform/backend/var/
+__pycache__/
+*.pyc
+.pytest_cache/
+platform/web/node_modules/
+platform/web/dist/
