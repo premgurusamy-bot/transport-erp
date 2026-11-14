@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 from app.core.audit import snapshot, write_audit
 from app.core.crud import get_or_404, to_dict
 from app.core.db import money, utcnow
-from app.core.deps import Principal, current_principal, get_db, require, require_any
+from app.core.deps import Principal, get_db, require
 from app.core.errors import AppError, BlockedByRule, Conflict, Forbidden
 from app.core.notify import queue
 from app.core.services import (
@@ -24,7 +24,6 @@ from app.modules.commercial.models import Booking, BookingVersion, Enquiry, Modi
 from app.modules.commercial.pricing import compute_costs, margin
 from app.modules.fleet.models import Vehicle
 from app.modules.masters.models import Contact, CreditProfile, Customer, GoodsCategory, Location, RouteDistance
-from app.modules.operations.access import assert_booking_access
 from app.modules.operations.lr import issue_lr
 from app.modules.operations.models import LorryReceipt, TripLoad
 

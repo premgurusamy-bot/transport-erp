@@ -10,7 +10,7 @@ from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
 from app.core.audit import write_audit
-from app.core.crud import get_or_404, normalize_name, to_dict
+from app.core.crud import normalize_name, to_dict
 from app.core.deps import Principal, get_db, require
 from app.core.errors import AppError, Conflict
 from app.core.resource import register_crud

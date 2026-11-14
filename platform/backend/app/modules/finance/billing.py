@@ -5,13 +5,13 @@ import uuid
 from datetime import date, timedelta
 from decimal import Decimal
 
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.audit import write_audit
 from app.core.db import money, utcnow
 from app.core.errors import AppError, BlockedByRule, Conflict
-from app.core.services import get_config, next_number, raise_exception_task
+from app.core.services import get_config, next_number
 from app.modules.commercial import credit as creditsvc
 from app.modules.commercial.models import Booking
 from app.modules.finance.models import (

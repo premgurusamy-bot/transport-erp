@@ -1,0 +1,65 @@
+# G ROAD LINES platform v2: backend tests, web typecheck/build, Flutter analyze/test/APK, dependency audit.
+name: platform
+
+on:
+  push:
+    paths: ["platform/**", ".github/workflows/platform.yml"]
+  pull_request:
+    paths: ["platform/**"]
+  workflow_dispatch:
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env: { POSTGRES_PASSWORD: postgres, POSTGRES_DB: groadlines_test }
+        ports: ["5432:5432"]
+        options: --health-cmd "pg_isready -U postgres" --health-interval 5s --health-retries 10
+    env:
+      GRL_DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/groadlines_test
+    defaults: { run: { working-directory: platform/backend } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.13" }
+      - run: sudo apt-get update && sudo apt-get install -y postgresql-client
+      - run: pip install -r requirements-dev.txt pip-audit
+      - run: ruff check app tests scripts
+      - name: Migrations apply cleanly
+        run: alembic upgrade head && alembic check
+      - run: pytest -q
+      - run: pip-audit -r requirements.txt || true
+
+  web:
+    runs-on: ubuntu-latest
+    defaults: { run: { working-directory: platform/web } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - run: npm ci
+      - run: npm run build
+      - run: npm audit --omit=dev || true
+
+  mobile:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with: { channel: stable }
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: 21 }
+      - name: Driver app
+        working-directory: platform/mobile/driver_app
+        run: flutter pub get && flutter analyze --no-fatal-infos && flutter test && flutter build apk --debug
+      - name: Management app
+        working-directory: platform/mobile/management_app
+        run: flutter pub get && flutter analyze --no-fatal-infos && flutter test && flutter build apk --debug
+      - uses: actions/upload-artifact@v4
+        with:
+          name: GRL-platform-APKs-DEBUG
+          path: |
+            platform/mobile/driver_app/build/app/outputs/flutter-apk/app-debug.apk
+            platform/mobile/management_app/build/app/outputs/flutter-apk/app-debug.apk

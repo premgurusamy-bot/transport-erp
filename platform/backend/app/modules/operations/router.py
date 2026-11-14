@@ -27,7 +27,7 @@ from app.modules.operations import service as ops
 from app.modules.operations.access import assert_booking_access, assert_trip_access
 from app.modules.operations.lr import amend_lr, ensure_eway
 from app.modules.operations.models import (
-    CustodyEvent, EwayBill, LorryReceipt, OwnerOffer, ProofOfDelivery, Trip, TripEvent, TripLoad,
+    CustodyEvent, LorryReceipt, OwnerOffer, ProofOfDelivery, Trip, TripEvent, TripLoad,
 )
 from app.modules.platform.models import OtpChallenge
 

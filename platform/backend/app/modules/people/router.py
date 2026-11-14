@@ -15,7 +15,7 @@ from app.core.audit import write_audit
 from app.core.crud import get_or_404, to_dict
 from app.core.db import money, utcnow
 from app.core.deps import Principal, current_principal, get_db, require, require_any
-from app.core.errors import AppError, BlockedByRule, Conflict, Forbidden
+from app.core.errors import AppError, Conflict, Forbidden
 from app.core.services import get_config, next_number, on_approval, raise_exception_task, request_approval
 from app.modules.finance.posting import post_voucher
 from app.modules.people.models import (

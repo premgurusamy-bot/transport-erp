@@ -11,7 +11,7 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from app.core import storage
-from app.core.audit import snapshot, verify_chain, write_audit
+from app.core.audit import verify_chain, write_audit
 from app.core.config import get_settings
 from app.core.crud import get_or_404
 from app.core.db import utcnow

@@ -95,7 +95,7 @@ def load_and_dispatch(client, ops: Api, trip: dict, driver: dict, vehicle: dict,
         labels = ops.get(f"/api/v1/bookings/{load['booking_id']}/labels")
         for l in labels:
             drv.post("/api/v1/scans", {"label": l["label"], "trip_id": trip["id"], "stage": "loaded", "client_event_id": uniq("scan")})
-        ops.post(f"/api/v1/custody", {"booking_id": load["booking_id"], "trip_id": trip["id"], "event": "loaded",
+        ops.post("/api/v1/custody", {"booking_id": load["booking_id"], "trip_id": trip["id"], "event": "loaded",
                                       "package_count": load["packages"], "condition": "good"})
         ops.post(f"/api/v1/trips/{trip['id']}/eway", {"booking_id": load["booking_id"], "use_provider": True})
     r = ops.get(f"/api/v1/trips/{trip['id']}/readiness")

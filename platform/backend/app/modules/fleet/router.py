@@ -10,7 +10,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.core.audit import snapshot, write_audit
+from app.core.audit import write_audit
 from app.core.crud import get_or_404, to_dict
 from app.core.db import money, utcnow
 from app.core.deps import Principal, current_principal, get_db, require, require_any
@@ -579,7 +579,6 @@ class EarningDecisionIn(BaseModel):
 
 @router.post("/driver-earnings/{eid}/submit")
 def submit_earning(eid: uuid.UUID, body: EarningDecisionIn, p: Principal = Depends(require("settlement.prepare")), db: Session = Depends(get_db)):
-    from app.modules.operations.models import ProofOfDelivery, TripLoad
     e = get_or_404(db, DriverEarning, eid, "Earning")
     if e.status != "calculated":
         raise Conflict("bad_status", f"Earning is {e.status}")

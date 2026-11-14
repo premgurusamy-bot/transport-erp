@@ -34,7 +34,7 @@ class MockProvider:
     inr_per_1k = Decimal("0")
 
     def complete(self, system: str, user: str, context: dict) -> tuple[str, int, int]:
-        lines = [f"[MOCK AI - deterministic summary, no language model used]"]
+        lines = ["[MOCK AI - deterministic summary, no language model used]"]
         for tool, data in context.items():
             lines.append(f"- {tool}: {_summarise(data)}")
         if not context:

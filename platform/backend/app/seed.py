@@ -17,7 +17,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.crud import normalize_name
-from app.core.db import SessionLocal, utcnow
+from app.core.db import SessionLocal
 from app.core.rbac import DEFAULT_ROLES, EXTERNAL_ROLES
 from app.core.security import hash_password
 from app.integrations.adapters import REGISTRY

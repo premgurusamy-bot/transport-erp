@@ -4,7 +4,7 @@ Every query here is filtered by the caller's own customer_id / owner_id / vendor
 from __future__ import annotations
 
 import uuid
-from datetime import date, datetime, timedelta
+from datetime import date, datetime
 from decimal import Decimal
 
 from fastapi import APIRouter, Depends
@@ -13,7 +13,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.audit import write_audit
-from app.core.crud import get_or_404, to_dict
+from app.core.crud import get_or_404
 from app.core.db import utcnow
 from app.core.deps import Principal, get_db, require
 from app.core.errors import AppError, BlockedByRule, Conflict, Forbidden, NotFound
@@ -22,13 +22,13 @@ from app.integrations.adapters import get_adapter
 from app.modules.commercial import router as com
 from app.modules.commercial.models import Booking, Enquiry, ModificationRequest, Quotation
 from app.modules.finance.models import Invoice, Payment, Settlement
-from app.modules.fleet.models import ComplianceItem, Driver, DriverEarning, Vehicle
+from app.modules.fleet.models import ComplianceItem, Driver, Vehicle
 from app.modules.masters.models import Customer, Location, VehicleOwner, Vendor
-from app.modules.operations.models import LorryReceipt, OwnerOffer, ProofOfDelivery, Trip, TripEvent, TripLoad
+from app.modules.operations.models import OwnerOffer, ProofOfDelivery, Trip, TripEvent, TripLoad
 from app.modules.operations.router import trip_out
 from app.modules.operations.service import position
 from app.modules.platform.models import Document
-from app.modules.supply.models import PurchaseOrder, PurchaseRequest, RfqQuote, VendorInvoice
+from app.modules.supply.models import PurchaseOrder, PurchaseRequest, VendorInvoice
 
 router = APIRouter(prefix="/api/v1", tags=["portals"])
 

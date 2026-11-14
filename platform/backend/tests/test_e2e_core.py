@@ -1,5 +1,5 @@
 """Critical end-to-end workflows 1, 2, 3, 5, 6 and 11."""
-from datetime import date, timedelta
+from datetime import date
 from decimal import Decimal
 
 from tests.conftest import login, loc, uniq
