@@ -197,11 +197,33 @@ function BookingDetail() {
           <h4>Feasibility</h4><p className="small">{b.feasibility.feasible ? `Fits: ${[...b.feasibility.own_vehicles_that_fit, ...b.feasibility.attached_vehicles_that_fit].join(", ")}` : b.feasibility.note}</p>
         </Card>
       </div>
+      {b.lr_number && <LrPrint bookingId={b.id} />}
       <Card title={`Packages (${b.packages.length})`} note="Each package has a QR label used for loading and delivery scans.">
         <Table rows={b.packages} cols={[{ key: "label", label: "Label / QR" }, { key: "seq", label: "#" }, { key: "status", label: "Status", badge: true }]} />
       </Card>
       {b.versions.length > 0 && <Card title="Version history"><Table rows={b.versions} cols={[{ key: "version", label: "v" }, { key: "reason", label: "Reason" }, { key: "changed_at", label: "At", date: true }]} /></Card>}
     </div>
+  );
+}
+
+function LrPrint({ bookingId }: { bookingId: string }) {
+  const [lr, setLr] = useState<any>(null);
+  return (
+    <>
+      <Btn kind="ghost" onClick={async () => setLr(await get(`/bookings/${bookingId}/lr`))}>View / print LR</Btn>
+      {lr && <Modal title={`Lorry Receipt ${lr.number}`} onClose={() => setLr(null)}>
+        <div className="print-doc">
+          <div className="row between"><h2>{lr.content.company}</h2><div><h3>LORRY RECEIPT / சரக்கு ரசீது</h3><div>{lr.number} · v{lr.version} · <Badge v={lr.status} /></div></div></div>
+          <dl className="dl"><dt>Consignor</dt><dd>{lr.content.consignor.name} {lr.content.consignor.gstin || ""}</dd><dt>Consignee</dt><dd>{lr.content.consignee.name} {lr.content.consignee.gstin || ""}</dd>
+            <dt>From → To</dt><dd>{lr.content.from} → {lr.content.to}</dd><dt>Goods</dt><dd>{lr.content.goods}</dd><dt>Packages / weight</dt><dd>{lr.content.packages} / {lr.content.weight_kg} kg</dd>
+            <dt>Declared value</dt><dd>{lr.content.declared_value ? inr(lr.content.declared_value) : "—"}</dd><dt>Vehicle</dt><dd>{lr.content.vehicle || "To be assigned"}</dd>
+            <dt>Service</dt><dd>{lr.content.service_type}</dd><dt>Freight</dt><dd>{lr.content.freight}</dd><dt>GST</dt><dd>{lr.content.gst_paid_by}</dd></dl>
+          <p className="small">{lr.content.terms}</p>
+          <p className="small">Verify: {location.origin}{lr.qr_payload}</p>
+          <Btn onClick={() => window.print()}>Print</Btn>
+        </div>
+      </Modal>}
+    </>
   );
 }
 

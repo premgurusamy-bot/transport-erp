@@ -39,6 +39,7 @@ function Invoices() {
   const [err, setErr] = useState<any>(null);
   const lk = useLookup();
   const custName = (id: string) => lk.data?.customers.find((c: any) => c.id === id)?.label || id;
+  const [print, setPrint] = useState<any>(null);
   return (
     <div className="stack">
       {can("invoice.write") && <Card title="Ready to bill (POD verified)" note="Invoices generate only from verified milestones; the same booking cannot be billed twice.">
@@ -56,8 +57,27 @@ function Invoices() {
         <Table rows={inv.data} cols={[{ key: "number", label: "Invoice" }, { key: "customer_name", label: "Customer" }, { key: "invoice_date", label: "Date", render: (r: any) => d(r.invoice_date) },
           { key: "due_date", label: "Due", render: (r: any) => d(r.due_date) }, { key: "taxable_value", label: "Taxable", money: true },
           { key: "gst", label: "GST", render: (r: any) => inr(Number(r.cgst) + Number(r.sgst) + Number(r.igst)) }, { key: "total", label: "Total", money: true },
-          { key: "balance", label: "Balance", money: true }, { key: "gst_mode", label: "Mode" }, { key: "status", label: "Status", badge: true }, { key: "irn_status", label: "IRN", badge: true }]} />
+          { key: "balance", label: "Balance", money: true }, { key: "gst_mode", label: "Mode" }, { key: "status", label: "Status", badge: true }, { key: "irn_status", label: "IRN", badge: true },
+          { key: "p", label: "", render: (r: any) => <Btn kind="ghost" onClick={() => setPrint(r)}>Print</Btn> }]} />
       </Card>
+      {print && <Modal title={`Invoice ${print.number}`} onClose={() => setPrint(null)}><PrintInvoice inv={print} /></Modal>}
+    </div>
+  );
+}
+
+export function PrintInvoice({ inv }: { inv: any }) {
+  const co = useData(() => get("/public/company"), []);
+  return (
+    <div className="print-doc">
+      <div className="row between"><div><h2>{co.data?.name || "G ROAD LINES"}</h2><div className="small">{co.data?.address}</div></div>
+        <div><h3>TAX INVOICE</h3><div>{inv.number}</div><div className="small">Date {d(inv.invoice_date)} · Due {d(inv.due_date)}</div></div></div>
+      <p><b>Bill to:</b> {inv.customer_name} · Place of supply {inv.place_of_supply || "—"}</p>
+      <Table rows={inv.lines.filter((l: any) => l.active)} cols={[{ key: "lr_number", label: "LR" }, { key: "description", label: "Description" },
+        { key: "is_pass_through", label: "Reimbursement", render: (l: any) => (l.is_pass_through ? "Yes" : "") }, { key: "amount", label: "Amount", money: true }]} />
+      <dl className="dl"><dt>Taxable value</dt><dd>{inr(inv.taxable_value)}</dd><dt>CGST / SGST / IGST</dt><dd>{inr(inv.cgst)} / {inr(inv.sgst)} / {inr(inv.igst)}</dd>
+        <dt>Reimbursements</dt><dd>{inr(inv.pass_through)}</dd><dt><b>Total</b></dt><dd><b>{inr(inv.total)}</b></dd></dl>
+      <p className="small">{inv.tax_rule_snapshot?.note} {inv.irn ? `IRN: ${inv.irn} (${inv.irn_status})` : ""}</p>
+      <Btn onClick={() => window.print()}>Print</Btn>
     </div>
   );
 }
@@ -123,9 +143,12 @@ function Settlements() {
   const st = useData(() => get("/finance/settlements"), []);
   const pays = useData(() => get("/finance/payments"), []);
   const act = async (fn: () => Promise<any>, m: string) => { try { await fn(); toast(m); st.reload(); pays.reload(); } catch (e: any) { toast(e.message, "red"); } };
+  const [mk, setMk] = useState<"" | "owner" | "driver">("");
   return (
     <div className="stack">
-      <Card title="Settlements" note="Driver/owner/vendor settlements are rule-based, maker-checker approved, with no unapproved deductions.">
+      <Card title="Settlements" note="Driver/owner/vendor settlements are rule-based, maker-checker approved, with no unapproved deductions."
+            actions={can("settlement.prepare") && <><Btn kind="ghost" onClick={() => setMk("owner")}>+ Owner settlement</Btn><Btn kind="ghost" onClick={() => setMk("driver")}>+ Driver settlement</Btn></>}>
+        {mk && <NewSettlement kind={mk} onClose={() => { setMk(""); st.reload(); }} />}
         <Table rows={st.data} cols={[{ key: "code", label: "Ref" }, { key: "party_type", label: "Party" }, { key: "gross", label: "Gross", money: true },
           { key: "advances", label: "Advances", money: true }, { key: "tds", label: "TDS", money: true }, { key: "net_payable", label: "Net", money: true },
           { key: "paid", label: "Paid", money: true }, { key: "status", label: "Status", badge: true },
@@ -144,6 +167,32 @@ function Settlements() {
           }}>Execute</Btn> }]} />
       </Card>
     </div>
+  );
+}
+
+function NewSettlement({ kind, onClose }: { kind: "owner" | "driver"; onClose: () => void }) {
+  const lk = useLookup();
+  const drivers = useData(() => (kind === "driver" ? get("/drivers") : Promise.resolve([])), [kind]);
+  const trips = useData(() => (kind === "owner" ? get("/trips?status=closed") : Promise.resolve([])), [kind]);
+  const [party, setParty] = useState("");
+  const earnings = useData(() => (kind === "driver" && party ? get(`/drivers/${party}/remuneration`) : Promise.resolve(null)), [party]);
+  const [sel, setSel] = useState<string[]>([]);
+  const [err, setErr] = useState<any>(null);
+  const rows = kind === "owner" ? (trips.data || []).filter((t: any) => t.owner_id === party) : (earnings.data?.earnings || []).filter((e: any) => e.status === "approved" && !e.settlement_id);
+  return (
+    <Modal title={`New ${kind} settlement`} onClose={onClose}>
+      <ErrorBox error={err} />
+      <select value={party} onChange={(e) => { setParty(e.target.value); setSel([]); }}>
+        <option value="">Select {kind}…</option>
+        {(kind === "owner" ? lk.data?.owners || [] : (drivers.data || []).map((d: any) => ({ id: d.id, label: `${d.code} ${d.name}` }))).map((o: any) => <option key={o.id} value={o.id}>{o.label}</option>)}
+      </select>
+      <Table rows={rows} cols={[{ key: "s", label: "", render: (r: any) => <input type="checkbox" checked={sel.includes(r.id)} onChange={() => setSel((x) => x.includes(r.id) ? x.filter((y) => y !== r.id) : [...x, r.id])} /> },
+        ...(kind === "owner" ? [{ key: "code", label: "Trip" }, { key: "owner_hire_amount", label: "Hire", money: true }, { key: "owner_advance", label: "Advance", money: true }]
+          : [{ key: "created_at", label: "Date", date: true }, { key: "gross", label: "Earning", money: true }])]} empty={party ? "Nothing ready to settle (trips must be closed / earnings approved)" : "Choose a party"} />
+      <Btn disabled={!sel.length} onClick={async () => {
+        try { await post(`/finance/settlements/${kind}`, kind === "owner" ? { owner_id: party, trip_ids: sel } : { driver_id: party, earning_ids: sel }); toast("Draft settlement created"); onClose(); } catch (e) { setErr(e); }
+      }}>Create draft settlement</Btn>
+    </Modal>
   );
 }
 
