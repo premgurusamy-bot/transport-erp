@@ -4,6 +4,7 @@ import { Btn } from "../components/ui";
 import { setLang, t, useLang } from "../i18n";
 import Admin from "./Admin";
 import AiPage from "./AiPage";
+import MySecurity from "./MySecurity";
 import Approvals from "./Approvals";
 import { Bookings, Enquiries, Quotations } from "./Commercial";
 import ControlTower from "./ControlTower";
@@ -49,7 +50,7 @@ export default function ErpApp() {
         <div className="side-foot">
           <div className="small">{me?.name}</div>
           <div className="small muted">{me?.roles.join(", ")}</div>
-          <div className="row gap small"><a onClick={() => setLang("en")}>EN</a><a onClick={() => setLang("ta")}>தமிழ்</a></div>
+          <div className="row gap small"><a onClick={() => setLang("en")}>EN</a><a onClick={() => setLang("ta")}>தமிழ்</a><NavLink to="/erp/security">{me?.mfa_enabled ? "2-step: on" : "Enable 2-step"}</NavLink></div>
           <Btn kind="ghost" onClick={() => { logout(); nav("/login"); }}>{t("action.signOut")}</Btn>
         </div>
       </aside>
@@ -71,6 +72,7 @@ export default function ErpApp() {
           <Route path="marketing/*" element={<Marketing />} />
           <Route path="ai" element={<AiPage />} />
           <Route path="admin/*" element={<Admin />} />
+          <Route path="security" element={<MySecurity />} />
         </Routes>
       </main>
     </div>

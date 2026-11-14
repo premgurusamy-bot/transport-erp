@@ -19,8 +19,8 @@ export function AiChat({ app = "web", fixed }: { app?: string; fixed?: string })
   return (
     <Card title="AI assistant" note="Advisory only: it reads your authorised data, summarises and recommends. It cannot pay, approve, file, change prices or bypass controls.">
       <div className="row gap">
-        {!fixed && <select value={assistant} onChange={(e) => setAssistant(e.target.value)}>{(list.data || []).map((a: any) => <option key={a.code} value={a.code}>{a.title}</option>)}</select>}
-        <input className="grow" value={q} placeholder="Ask, e.g. 'summary of today'" onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => e.key === "Enter" && q && ask()} />
+        {!fixed && <select aria-label="Assistant" value={assistant} onChange={(e) => setAssistant(e.target.value)}>{(list.data || []).map((a: any) => <option key={a.code} value={a.code}>{a.title}</option>)}</select>}
+        <input aria-label="Question" className="grow" value={q} placeholder="Ask, e.g. 'summary of today'" onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => e.key === "Enter" && q && ask()} />
         <Btn disabled={!q} onClick={ask}>Ask</Btn>
       </div>
       <ErrorBox error={err} />

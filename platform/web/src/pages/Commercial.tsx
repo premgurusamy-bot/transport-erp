@@ -144,7 +144,7 @@ function BookingList() {
   return (
     <div className="stack"><ModRequests />
     <Card title="Bookings" actions={<>
-      <select value={status} onChange={(e) => setStatus(e.target.value)}>
+      <select aria-label="Booking status filter" value={status} onChange={(e) => setStatus(e.target.value)}>
         <option value="">All</option>{["draft", "confirmed", "on_hold", "planned", "dispatched", "in_transit", "delivered", "pod_verified", "invoiced", "cancelled"].map((s) => <option key={s}>{s}</option>)}
       </select>
       {can("booking.write") && <Btn onClick={() => setCreating(true)}>+ Booking</Btn>}</>}>

@@ -16,7 +16,7 @@ const { chromium } = require('playwright');
   const pages = ['', 'approvals', 'enquiries', 'quotations', 'bookings', 'dispatch', 'trips', 'fleet', 'fleet/compliance', 'fleet/defects', 'fleet/fuel',
     'fleet/maintenance', 'fleet/tyres', 'fleet/drivers', 'fleet/owners', 'supply', 'supply/procurement', 'supply/inventory', 'supply/godown', 'finance',
     'finance/receipts', 'finance/expenses', 'finance/settlements', 'finance/bank', 'finance/collections', 'finance/reports', 'finance/cash', 'finance/tally',
-    'risk', 'risk/incidents', 'risk/insurance', 'risk/legal', 'people', 'people/sops', 'people/employees', 'people/payroll', 'people/attendance', 'marketing', 'marketing/campaigns',
+    'risk', 'risk/incidents', 'risk/insurance', 'risk/legal', 'people', 'people/sops', 'people/employees', 'people/payroll', 'people/attendance', 'people/outage', 'fleet/kpis', 'security', 'marketing', 'marketing/campaigns',
     'marketing/opportunities', 'marketing/funnel', 'ai', 'admin', 'admin/masters', 'admin/users', 'admin/settings', 'admin/audit', 'admin/integrations', 'admin/notifications'];
   for (const pg of pages) {
     await p.goto((process.env.GRL_WEB || 'http://localhost:5173') + '/erp/' + pg);

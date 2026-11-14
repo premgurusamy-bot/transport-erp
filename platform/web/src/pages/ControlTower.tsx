@@ -16,7 +16,7 @@ export default function ControlTower() {
       <div className="row between">
         <h2>Operations Control Tower</h2>
         <div className="row gap">
-          <select value={view} onChange={(e) => setView(e.target.value)}>
+          <select aria-label="Dashboard view" value={view} onChange={(e) => setView(e.target.value)}>
             {["owner", "operations", "dispatcher", "accounts", "support"].map((v) => <option key={v}>{v}</option>)}
           </select>
           {can("settings.write") && <Btn kind="ghost" onClick={async () => { await post("/jobs/run"); toast("Scheduled checks run"); ct.reload(); }}>Run checks now</Btn>}

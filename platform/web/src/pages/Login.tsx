@@ -12,6 +12,8 @@ export default function Login() {
   const [mode, setMode] = useState<"password" | "otp">("password");
   const [id, setId] = useState("");
   const [pw, setPw] = useState("");
+  const [code, setCode] = useState("");
+  const [needCode, setNeedCode] = useState(false);
   const [phone, setPhone] = useState("");
   const [otp, setOtp] = useState("");
   const [sent, setSent] = useState<string | null>(null);
@@ -20,22 +22,24 @@ export default function Login() {
   const go = async (fn: () => Promise<any>) => {
     setBusy(true);
     setErr(null);
-    try { const me = await fn(); if (me) nav(homeFor(me)); } catch (e) { setErr(e); } finally { setBusy(false); }
+    try { const me = await fn(); if (me) nav(homeFor(me)); }
+    catch (e: any) { if (e.code === "mfa_required") { setNeedCode(true); setErr(null); } else setErr(e); } finally { setBusy(false); }
   };
   return (
     <div className="login-wrap">
       <div className="login card">
         <h1>{t("app.name")}</h1>
-        <p className="muted">Transport Business Operating System</p>
+        <p className="muted">{t("login.subtitle")}</p>
         <div className="tabs">
-          <button className={mode === "password" ? "on" : ""} onClick={() => setMode("password")}>Staff / Customer / Owner / Vendor</button>
-          <button className={mode === "otp" ? "on" : ""} onClick={() => setMode("otp")}>Driver (OTP)</button>
+          <button className={mode === "password" ? "on" : ""} onClick={() => setMode("password")}>{t("login.staffTab")}</button>
+          <button className={mode === "otp" ? "on" : ""} onClick={() => setMode("otp")}>{t("login.driverTab")}</button>
         </div>
         <ErrorBox error={err} />
         {mode === "password" ? (
-          <form onSubmit={(e) => { e.preventDefault(); go(() => login(id, pw)); }} className="form">
-            <label><span>Email or phone</span><input autoComplete="username" value={id} onChange={(e) => setId(e.target.value)} required /></label>
-            <label><span>Password</span><input type="password" autoComplete="current-password" value={pw} onChange={(e) => setPw(e.target.value)} required /></label>
+          <form onSubmit={(e) => { e.preventDefault(); go(() => login(id, pw, code)); }} className="form">
+            <label><span>{t("login.id")}</span><input autoComplete="username" value={id} onChange={(e) => setId(e.target.value)} required /></label>
+            <label><span>{t("login.password")}</span><input type="password" autoComplete="current-password" value={pw} onChange={(e) => setPw(e.target.value)} required /></label>
+            {needCode && <label><span>{t("login.code")}</span><input inputMode="numeric" autoComplete="one-time-code" value={code} onChange={(e) => setCode(e.target.value)} required autoFocus /></label>}
             <Btn disabled={busy}>{t("action.signIn")}</Btn>
           </form>
         ) : (
@@ -44,9 +48,9 @@ export default function Login() {
             setSent(r.dev_otp ? `${r.message} (DEVELOPMENT MOCK SMS OTP: ${r.dev_otp})` : r.message);
             return null;
           }); }} className="form">
-            <label><span>Mobile number</span><input type="tel" inputMode="numeric" value={phone} onChange={(e) => setPhone(e.target.value)} required /></label>
+            <label><span>{t("login.mobile")}</span><input type="tel" inputMode="numeric" value={phone} onChange={(e) => setPhone(e.target.value)} required /></label>
             {sent && <><p className="small muted">{sent}</p><label><span>OTP</span><input inputMode="numeric" value={otp} onChange={(e) => setOtp(e.target.value)} required /></label></>}
-            <Btn disabled={busy}>{sent ? t("action.signIn") : "Send OTP"}</Btn>
+            <Btn disabled={busy}>{sent ? t("action.signIn") : t("login.sendOtp")}</Btn>
           </form>
         )}
         <p className="small"><a onClick={() => setLang("en")}>English</a> · <a onClick={() => setLang("ta")}>தமிழ்</a> · <a href="/">Website</a></p>

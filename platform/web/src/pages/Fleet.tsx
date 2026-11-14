@@ -13,7 +13,7 @@ export default function Fleet() {
       <SubNav items={[{ to: "/erp/fleet", label: "Vehicles" }, { to: "/erp/fleet/compliance", label: "Compliance & renewals" },
         { to: "/erp/fleet/defects", label: "Safety defects" }, { to: "/erp/fleet/fuel", label: "Fuel" }, { to: "/erp/fleet/maintenance", label: "Maintenance" },
         { to: "/erp/fleet/tyres", label: "Tyres" }, { to: "/erp/fleet/drivers", label: "Drivers", show: can("driver.read") },
-        { to: "/erp/fleet/owners", label: "Owners & offers", show: can("owner.read") }]} />
+        { to: "/erp/fleet/owners", label: "Owners & offers", show: can("owner.read") }, { to: "/erp/fleet/kpis", label: "Fleet KPIs" }]} />
       <Routes>
         <Route index element={<Vehicles />} />
         <Route path="compliance" element={<Compliance />} />
@@ -27,6 +27,7 @@ export default function Fleet() {
             { name: "brand", label: "Brand" }, { name: "size", label: "Size" }, { name: "purchase_date", label: "Purchased", type: "date" }, { name: "cost", label: "Cost ₹", type: "number" }]} />} />
         <Route path="drivers" element={<Drivers />} />
         <Route path="owners" element={<Owners />} />
+        <Route path="kpis" element={<FleetKpis />} />
       </Routes>
     </div>
   );
@@ -64,7 +65,7 @@ function Compliance() {
   const [quote, setQuote] = useState<any>(null);
   return (
     <Card title="Compliance documents" note="Renewal expenses always need Owner/Director approval." actions={<>
-      <select value={days} onChange={(e) => setDays(e.target.value)}><option value="">All current</option><option value="15">Due ≤ 15 days</option><option value="60">Due ≤ 60 days</option></select>
+      <select aria-label="Due filter" value={days} onChange={(e) => setDays(e.target.value)}><option value="">All current</option><option value="15">Due ≤ 15 days</option><option value="60">Due ≤ 60 days</option></select>
       {can("compliance.write") && <Btn onClick={() => setAdding(true)}>+ Record</Btn>}</>}>
       <Table rows={data} cols={[{ key: "subject_label", label: "Vehicle/driver" }, { key: "kind", label: "Document" }, { key: "number", label: "Number" },
         { key: "valid_to", label: "Valid to", render: (r: any) => d(r.valid_to) }, { key: "days_left", label: "Days left", render: (r: any) => <span className={r.days_left < 0 ? "red" : r.days_left < 15 ? "amber" : ""}>{r.days_left}</span> },
@@ -219,3 +220,19 @@ function Owners() {
 }
 
 export { dt };
+
+function FleetKpis() {
+  const iso = (x: Date) => x.toISOString().slice(0, 10);
+  const [frm, setFrm] = useState(iso(new Date(Date.now() - 30 * 864e5)));
+  const [to, setTo] = useState(iso(new Date()));
+  const { data } = useData(() => get(`/fleet/kpis?frm=${frm}&to=${to}`), [frm, to]);
+  return (
+    <Card title="Fleet KPIs" note={data?.note} actions={<><input aria-label="From date" type="date" value={frm} onChange={(e) => setFrm(e.target.value)} /><input aria-label="To date" type="date" value={to} onChange={(e) => setTo(e.target.value)} /></>}>
+      <Table rows={data?.vehicles} cols={[{ key: "vehicle", label: "Vehicle" }, { key: "ownership", label: "Fleet" }, { key: "trips", label: "Trips" }, { key: "km", label: "Km" },
+        { key: "empty_pct", label: "Empty %" }, { key: "avg_kmpl", label: "km/l", render: (r: any) => <>{r.avg_kmpl ?? "—"} <span className="muted small">(base {r.baseline_kmpl ?? "—"})</span></> },
+        { key: "fuel_cost_per_km", label: "Fuel ₹/km" }, { key: "maintenance_cost_per_km", label: "Maint. ₹/km" }, { key: "direct_cost_per_km", label: "Direct ₹/km" },
+        { key: "revenue_per_km", label: "Revenue ₹/km" }, { key: "gross_contribution", label: "Contribution", money: true },
+        { key: "utilisation_pct", label: "Utilisation %" }, { key: "downtime_days", label: "Downtime d" }, { key: "revenue_basis", label: "Basis", badge: true }]} />
+    </Card>
+  );
+}

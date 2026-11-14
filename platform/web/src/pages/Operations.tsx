@@ -24,7 +24,7 @@ export function DispatchBoard() {
         ]} empty="Nothing to allocate" />
         <div className="row gap">
           <Btn disabled={!sel.length} onClick={() => setPlan({ booking_ids: sel })}>Allocate selected</Btn>
-          <select value={vehicleId} onChange={(e) => setVehicleId(e.target.value)}>
+          <select aria-label="Vehicle for PTL proposal" value={vehicleId} onChange={(e) => setVehicleId(e.target.value)}>
             <option value="">Vehicle for PTL proposal…</option>
             {(vehicles.data || []).map((v: any) => <option key={v.id} value={v.id}>{v.registration} ({v.payload_kg} kg, {v.ownership})</option>)}
           </select>
@@ -63,7 +63,7 @@ function AllocateModal({ plan, onClose, onDone }: { plan: any; onClose: () => vo
         { key: "driver", label: "Suggested driver" }, { key: "eligible", label: "Eligible", render: (r: any) => <Badge v={r.eligible ? "ok" : "blocked"} /> },
         { key: "pick", label: "", render: (r: any) => <Btn kind="ghost" onClick={() => { setVehicle(r.vehicle_id); setDriver(r.driver_id || ""); setCheck(null); }}>Pick</Btn> }]} />
       <div className="row gap">
-        <select value={driver} onChange={(e) => setDriver(e.target.value)}><option value="">Driver…</option>
+        <select aria-label="Driver" value={driver} onChange={(e) => setDriver(e.target.value)}><option value="">Driver…</option>
           {(drivers.data || []).map((d: any) => <option key={d.id} value={d.id}>{d.name} ({d.category}, {d.status})</option>)}</select>
         <Btn kind="ghost" disabled={!vehicle} onClick={runCheck}>Run allocation checks</Btn>
       </div>
@@ -82,7 +82,7 @@ export function Trips() {
   const [status, setStatus] = useState("planned,ready,dispatched,in_transit,delivered");
   const { data } = useData(() => get(`/trips?status=${status}`), [status]);
   return (
-    <Card title="Trips" actions={<select value={status} onChange={(e) => setStatus(e.target.value)}>
+    <Card title="Trips" actions={<select aria-label="Trip status filter" value={status} onChange={(e) => setStatus(e.target.value)}>
       <option value="planned,ready,dispatched,in_transit,delivered">Open</option><option value="closed">Closed</option><option value="cancelled">Cancelled</option></select>}>
       <Table rows={data} onRow={(r: any) => nav(`/erp/trips/${r.id}`)} cols={[
         { key: "code", label: "Trip" }, { key: "trip_mode", label: "Mode" }, { key: "fleet_type", label: "Fleet" }, { key: "vehicle_registration", label: "Vehicle" },
@@ -100,6 +100,8 @@ export function TripDetail() {
   const [err, setErr] = useState<any>(null);
   const [profit, setProfit] = useState<any>(null);
   const [stream, setStream] = useState<any>(null);
+  const [track, setTrack] = useState<any>(null);
+  const [ts, setTs] = useState<any>(null);
   const run = async (fn: () => Promise<any>, msg: string) => { setErr(null); try { await fn(); toast(msg); reload(); } catch (e) { setErr(e); } };
   if (error) return <ErrorBox error={error} />;
   if (!t) return <p>Loading…</p>;
@@ -112,6 +114,7 @@ export function TripDetail() {
           {can("trip.close") && t.status === "delivered" && <Btn onClick={() => { const o = prompt("End odometer (km, own fleet)"); run(() => post(`/trips/${id}/close`, { end_odometer: o ? Number(o) : null }), "Trip closed"); }}>Close trip</Btn>}
           {can("dispatch.plan") && ["planned", "ready"].includes(t.status) && <Btn kind="danger" onClick={() => { const r = prompt("Reason"); r && run(() => post(`/trips/${id}/cancel`, { reason: r }), "Cancelled"); }}>Cancel</Btn>}
           {can("reports.read") && <Btn kind="ghost" onClick={async () => setProfit(await get(`/finance/reports/trip/${id}/profitability`))}>Profitability</Btn>}
+          {can("gps.view") && <Btn kind="ghost" onClick={async () => setTrack(await get(`/trips/${id}/track`))}>GPS track</Btn>}
           {can("camera.view") && t.fleet_type === "own" && <Btn kind="ghost" onClick={() => run(async () => setStream(await post(`/vehicles/${t.vehicle_id}/camera/2/live`)), "Stream token issued")}>Cargo camera</Btn>}
         </div>
       </div>
@@ -136,6 +139,7 @@ export function TripDetail() {
           { key: "packages", label: "Pkgs" }, { key: "delivered_count", label: "Delivered" }, { key: "status", label: "Status", badge: true },
           { key: "act", label: "", render: (r: any) => <div className="row gap">
             {can("lr.write") && ["planned", "ready"].includes(t.status) && <Btn kind="ghost" onClick={() => run(() => post(`/trips/${id}/eway`, { booking_id: r.booking_id, use_provider: true }), "E-way bill (MOCK) generated")}>E-way</Btn>}
+            {can("custody.write") && t.trip_mode === "PTL" && ["dispatched", "in_transit"].includes(t.status) && r.status === "loaded" && <Btn kind="ghost" onClick={() => setTs(r)}>Transship</Btn>}
             {can("trip.close") && r.status !== "planned" && r.booking_status === "delivered" && <Btn kind="ghost" onClick={() => run(() => post(`/pod/${r.booking_id}/verify`, { approve: true }), "POD verified")}>Verify POD</Btn>}
           </div> }]} />
       </Card>
@@ -145,6 +149,12 @@ export function TripDetail() {
         <Table rows={t.load_plan.loading_order} cols={[{ key: "booking", label: "Booking" }, { key: "drop_seq", label: "Drop #" }, { key: "position", label: "Position" },
           { key: "weight_kg", label: "Kg" }, { key: "note", label: "Handling" }]} /></Card>}
       <Card title="Events"><Table rows={t.events} cols={[{ key: "occurred_at", label: "Time", date: true }, { key: "event", label: "Event" }, { key: "source", label: "Source" }, { key: "note", label: "Note" }]} /></Card>
+      {track && <Modal title="GPS track" onClose={() => setTrack(null)}>
+        <p className="small muted">{track.corridor_basis}</p>
+        {track.evaluation && <p>Distance from corridor: <b>{track.evaluation.deviation_km ?? "—"} km</b> · stationary for {track.evaluation.stopped_minutes} min</p>}
+        <Table rows={[...track.pings].reverse().slice(0, 50)} cols={[{ key: "at", label: "Time", date: true }, { key: "source", label: "Source" }, { key: "lat", label: "Lat" }, { key: "lng", label: "Lng" }, { key: "speed", label: "km/h" }]} empty="No positions received" />
+      </Modal>}
+      {ts && <TransshipModal trip={t} load={ts} onClose={() => { setTs(null); reload(); }} />}
       {profit && <Modal title="Trip profitability" onClose={() => setProfit(null)}>
         <dl className="dl"><dt>Revenue</dt><dd>{inr(profit.revenue)} <span className="muted small">{profit.revenue_basis}</span></dd>
           {Object.entries(profit.direct_costs).map(([k, v]) => <><dt key={k}>{k}</dt><dd>{inr(v)}</dd></>)}
@@ -152,5 +162,25 @@ export function TripDetail() {
           <dt>Fully allocated profit</dt><dd>{inr(profit.fully_allocated_profit)}</dd><dt>Revenue/km · cost/km</dt><dd>{profit.revenue_per_km ?? "—"} · {profit.cost_per_km ?? "—"}</dd></dl>
       </Modal>}
     </div>
+  );
+}
+
+function TransshipModal({ trip, load, onClose }: { trip: any; load: any; onClose: () => void }) {
+  const fac = useData(() => get("/masters/facilities"), []);
+  const [err, setErr] = useState<any>(null);
+  const [f, setF] = useState<any>({ package_count: load.packages, condition: "good" });
+  return (
+    <Modal title={`Transship ${load.booking_code}`} onClose={onClose}>
+      <p className="small muted">Ends this leg with a counted custody handover at a VERIFIED facility. The consignment keeps its LR; plan the onward trip from Dispatch.</p>
+      <ErrorBox error={err} />
+      <div className="grid-form">
+        <label><span>Facility</span><select value={f.facility_id || ""} onChange={(e) => setF({ ...f, facility_id: e.target.value })}><option value="">—</option>
+          {(fac.data || []).map((x: any) => <option key={x.id} value={x.id} disabled={!x.verified}>{x.name}{x.verified ? "" : " (not verified)"}</option>)}</select></label>
+        <label><span>Packages handed over</span><input type="number" value={f.package_count} onChange={(e) => setF({ ...f, package_count: Number(e.target.value) })} /></label>
+        <label><span>Condition</span><select value={f.condition} onChange={(e) => setF({ ...f, condition: e.target.value })}>{["good", "damaged", "wet", "open"].map((c) => <option key={c}>{c}</option>)}</select></label>
+        <label><span>Rack / bay</span><input onChange={(e) => setF({ ...f, location: e.target.value })} /></label>
+      </div>
+      <Btn disabled={!f.facility_id} onClick={async () => { try { await post(`/bookings/${load.booking_id}/transship`, { trip_id: trip.id, ...f }); toast("Transshipped"); onClose(); } catch (e) { setErr(e); } }}>Record handover</Btn>
+    </Modal>
   );
 }

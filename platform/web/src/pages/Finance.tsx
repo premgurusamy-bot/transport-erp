@@ -119,7 +119,7 @@ function Expenses() {
   };
   return (
     <Card title="Expenses" note="OCR values are suggestions only. You cannot approve your own expense." actions={<>
-      <select value={status} onChange={(e) => setStatus(e.target.value)}>{["submitted", "posted", "rejected"].map((s) => <option key={s}>{s}</option>)}</select>
+      <select aria-label="Expense status filter" value={status} onChange={(e) => setStatus(e.target.value)}>{["submitted", "posted", "rejected"].map((s) => <option key={s}>{s}</option>)}</select>
       {can("accounts.post") && <Btn onClick={() => setAdding(true)}>+ Expense</Btn>}</>}>
       <Table rows={data} cols={[{ key: "code", label: "Ref" }, { key: "expense_date", label: "Date", render: (r: any) => d(r.expense_date) }, { key: "category", label: "Category" },
         { key: "amount", label: "Amount", money: true }, { key: "vendor_name", label: "Vendor" }, { key: "paid_by", label: "Paid by" }, { key: "source", label: "Source" },
@@ -182,7 +182,7 @@ function NewSettlement({ kind, onClose }: { kind: "owner" | "driver"; onClose: (
   return (
     <Modal title={`New ${kind} settlement`} onClose={onClose}>
       <ErrorBox error={err} />
-      <select value={party} onChange={(e) => { setParty(e.target.value); setSel([]); }}>
+      <select aria-label="Party" value={party} onChange={(e) => { setParty(e.target.value); setSel([]); }}>
         <option value="">Select {kind}…</option>
         {(kind === "owner" ? lk.data?.owners || [] : (drivers.data || []).map((d: any) => ({ id: d.id, label: `${d.code} ${d.name}` }))).map((o: any) => <option key={o.id} value={o.id}>{o.label}</option>)}
       </select>
@@ -211,9 +211,9 @@ function Bank() {
           { key: "statement_balance", label: "Statement balance", money: true }, { key: "statement_to", label: "Statement to" }, { key: "sync_status", label: "Sync" },
           { key: "unreconciled_count", label: "Unreconciled" }, { key: "oldest_unreconciled_days", label: "Oldest (days)" }]} />
         {can("bank.import") && <div className="row gap">
-          <select value={bankId} onChange={(e) => setBankId(e.target.value)}><option value="">Bank account…</option>
+          <select aria-label="Bank account" value={bankId} onChange={(e) => setBankId(e.target.value)}><option value="">Bank account…</option>
             {(banks.data || []).filter((b: any) => !b.is_cash).map((b: any) => <option key={b.id} value={b.id}>{b.name}</option>)}</select>
-          <input type="file" accept=".csv,text/csv" onChange={(e) => setFile(e.target.files?.[0] || null)} />
+          <input aria-label="Bank statement CSV file" type="file" accept=".csv,text/csv" onChange={(e) => setFile(e.target.files?.[0] || null)} />
           <Btn disabled={!file || !bankId} onClick={async () => {
             const f = new FormData(); f.append("company_bank_id", bankId); f.append("file", file!); setErr(null);
             try { const r = await api("/finance/bank/import", { form: f }); toast(`Imported ${r.import.rows_new} new rows; auto-confirmed ${r.matching.auto_confirmed}`); sum.reload(); tx.reload(); } catch (e) { setErr(e); }
@@ -266,10 +266,10 @@ function Reports() {
   };
   return (
     <Card title="Reports" actions={<>
-      <select value={rep} onChange={(e) => setRep(e.target.value)}>
+      <select aria-label="Report" value={rep} onChange={(e) => setRep(e.target.value)}>
         <option value="trial-balance">Trial balance</option><option value="pnl">Profit & loss</option><option value="bs">Balance sheet</option>
         <option value="ageing">Receivables ageing</option><option value="gst">GST register</option><option value="profit">Profitability (service/vehicle/lane/customer)</option></select>
-      <input type="date" value={frm} onChange={(e) => setFrm(e.target.value)} /><input type="date" value={to} onChange={(e) => setTo(e.target.value)} />
+      <input aria-label="From date" type="date" value={frm} onChange={(e) => setFrm(e.target.value)} /><input aria-label="To date" type="date" value={to} onChange={(e) => setTo(e.target.value)} />
       {exportable && <>{["csv", "xlsx", "pdf"].map((f) => <Btn key={f} kind="ghost" onClick={() => download(f)}>{f.toUpperCase()}</Btn>)}</>}</>}>
       {data && <p className="small muted">{data.basis || data.note || ""}</p>}
       {rep === "trial-balance" && data && <><Table rows={data.rows} cols={[{ key: "code", label: "Code" }, { key: "name", label: "Ledger" }, { key: "debit", label: "Debit", money: true }, { key: "credit", label: "Credit", money: true }]} />
@@ -300,7 +300,7 @@ function Cash() {
         <Table rows={f.data?.weeks} cols={[{ key: "week_start", label: "Week of" }, { key: "inflow", label: "Expected in", money: true }, { key: "outflow", label: "Expected out", money: true },
           { key: "net", label: "Net", money: true }, { key: "cumulative_net", label: "Cumulative", money: true }]} />
       </Card>
-      <Card title="Budget vs actual" note="Budgets are prepared by Accounts and approved by management." actions={<input type="month" value={period} onChange={(e) => setPeriod(e.target.value)} />}>
+      <Card title="Budget vs actual" note="Budgets are prepared by Accounts and approved by management." actions={<input aria-label="Period" type="month" value={period} onChange={(e) => setPeriod(e.target.value)} />}>
         <Table rows={bva.data?.rows} cols={[{ key: "area", label: "Area" }, { key: "budget", label: "Budget", money: true }, { key: "actual", label: "Actual", money: true }, { key: "variance", label: "Variance", money: true }]} />
         {can("budget.write") && <><Form fields={[{ name: "area", label: "Area", type: "select", options: enumOpts("fleet", "operations", "marketing", "administration"), required: true },
           { name: "category", label: "Category", required: true }, { name: "amount", label: "Amount ₹", type: "number", required: true }]}
@@ -320,11 +320,11 @@ function Tally() {
   return (
     <div className="stack">
       <Card title="Export to Tally (XML)" note="Supported Tally XML import format. Source vouchers and numbers are preserved.">
-        <div className="row gap"><input type="date" value={frm} onChange={(e) => setFrm(e.target.value)} /><input type="date" value={to} onChange={(e) => setTo(e.target.value)} />
+        <div className="row gap"><input aria-label="From date" type="date" value={frm} onChange={(e) => setFrm(e.target.value)} /><input aria-label="To date" type="date" value={to} onChange={(e) => setTo(e.target.value)} />
           <Btn onClick={async () => { const b = await api(`/finance/tally/export?frm=${frm}&to=${to}`); const a = document.createElement("a"); a.href = URL.createObjectURL(b as Blob); a.download = "GRL_Tally.xml"; a.click(); }}>Download XML</Btn></div>
       </Card>
       <Card title="Import from Tally (dry run → approval → commit)" note="Never overwrites Tally. Unmapped ledgers, unbalanced or duplicate vouchers go to the exception list.">
-        <div className="row gap"><input type="file" accept=".xml" onChange={(e) => setFile(e.target.files?.[0] || null)} />
+        <div className="row gap"><input aria-label="Tally XML file" type="file" accept=".xml" onChange={(e) => setFile(e.target.files?.[0] || null)} />
           <Btn disabled={!file} onClick={async () => { const f = new FormData(); f.append("file", file!); setRes(await api("/finance/tally/import", { form: f })); batches.reload(); }}>Preview</Btn></div>
         {res && <><p>Batch {res.batch}: {res.valid_vouchers} valid voucher(s)</p><Table rows={res.exceptions} cols={[{ key: "row", label: "#" }, { key: "voucher", label: "Voucher" }, { key: "issue", label: "Issue" }]} empty="No exceptions" /></>}
         <Table rows={batches.data} cols={[{ key: "code", label: "Batch" }, { key: "filename", label: "File" }, { key: "status", label: "Status", badge: true },

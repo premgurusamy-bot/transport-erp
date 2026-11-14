@@ -5,14 +5,17 @@ import { useAuth } from "../auth";
 import { enumOpts, opts } from "../components/Resource";
 import { Badge, Btn, Card, d, dt, ErrorBox, Form, inr, Modal, Table, toast, useData } from "../components/ui";
 import { AiChat } from "../pages/AiPage";
+import { setLang, t, useLang } from "../i18n";
 
 export function PortalShell({ title, links, children }: { title: string; links: { to: string; label: string }[]; children: React.ReactNode }) {
+  useLang();
   const { me, logout } = useAuth();
   const nav = useNavigate();
   return (
     <div className="portal">
       <header className="site-h"><div className="brand">G ROAD LINES · {title}</div>
         <nav className="row gap">{links.map((l) => <NavLink key={l.to} to={l.to} end>{l.label}</NavLink>)}
+          <a onClick={() => setLang("en")}>EN</a><a onClick={() => setLang("ta")}>தமிழ்</a>
           <span className="muted small">{me?.name}</span><Btn kind="ghost" onClick={() => { logout(); nav("/login"); }}>Sign out</Btn></nav></header>
       <main className="main">{children}</main>
     </div>
@@ -21,8 +24,8 @@ export function PortalShell({ title, links, children }: { title: string; links: 
 
 export default function CustomerPortal() {
   return (
-    <PortalShell title="Customer portal" links={[{ to: "/portal/customer", label: "Bookings" }, { to: "/portal/customer/quotes", label: "Quotes" },
-      { to: "/portal/customer/enquiry", label: "New enquiry" }, { to: "/portal/customer/invoices", label: "Invoices" }, { to: "/portal/customer/support", label: "Support" }]}>
+    <PortalShell title={t("portal.customer")} links={[{ to: "/portal/customer", label: t("portal.bookings") }, { to: "/portal/customer/quotes", label: t("portal.quotes") },
+      { to: "/portal/customer/enquiry", label: t("portal.enquiry") }, { to: "/portal/customer/invoices", label: t("portal.invoices") }, { to: "/portal/customer/support", label: t("portal.support") }]}>
       <Routes>
         <Route index element={<MyBookings />} />
         <Route path="bookings/:id" element={<MyBooking />} />
@@ -61,15 +64,15 @@ function MyBooking() {
   return (
     <div className="stack">
       <h2>{b.code} <Badge v={b.status} /></h2>
-      <Card title="Tracking" note={tr?.shared_transport ? "Shared (PTL) transport - only your consignment's details are shown." : undefined}>
+      <Card title={t("portal.tracking")} note={tr?.shared_transport ? t("portal.shared") : undefined}>
         {!tr ? <p className="muted">Not yet dispatched.</p> : <>
           <p>Vehicle {tr.vehicle} · Trip <Badge v={tr.trip_status} /> · ETA {dt(tr.eta)} ({tr.eta_source || "—"})</p>
           {tr.position && <p className="small">Position: <Badge v={tr.position.state} /> last update {dt(tr.position.recorded_at)} {tr.position.age_minutes != null && `(${tr.position.age_minutes} min ago)`}</p>}
           <Table rows={tr.milestones} cols={[{ key: "at", label: "When", date: true }, { key: "event", label: "Milestone" }]} />
         </>}
       </Card>
-      {b.pod && <Card title="Proof of delivery"><p>Delivered {b.pod.delivered_count} package(s) to {b.pod.receiver} at {dt(b.pod.delivered_at)} · <Badge v={b.pod.status} /></p></Card>}
-      <Card title="Documents"><Table rows={b.documents} cols={[{ key: "type", label: "Type" }, { key: "filename", label: "File" },
+      {b.pod && <Card title={t("portal.pod")}><p>Delivered {b.pod.delivered_count} package(s) to {b.pod.receiver} at {dt(b.pod.delivered_at)} · <Badge v={b.pod.status} /></p></Card>}
+      <Card title={t("portal.documents")}><Table rows={b.documents} cols={[{ key: "type", label: "Type" }, { key: "filename", label: "File" },
         { key: "o", label: "", render: (r: any) => <Btn kind="ghost" onClick={async () => { const l = await get(`/documents/${r.id}/link`); window.open(l.url, "_blank"); }}>Open</Btn> }]} empty="No documents yet" /></Card>
       {!["delivered", "pod_verified", "invoiced", "closed", "cancelled"].includes(b.status) && <Btn kind="ghost" onClick={() => setReq(true)}>Request change / cancellation</Btn>}
       {req && <Modal title="Request change" onClose={() => setReq(false)}>

@@ -15,7 +15,7 @@ export default function Approvals() {
   };
   return (
     <Card title="Approvals (maker-checker)" note="You cannot approve your own requests. AI recommendations are never approvals."
-          actions={<select value={status} onChange={(e) => setStatus(e.target.value)}>{["pending", "approved", "rejected"].map((s) => <option key={s}>{s}</option>)}</select>}>
+          actions={<select aria-label="Approval status" value={status} onChange={(e) => setStatus(e.target.value)}>{["pending", "approved", "rejected"].map((s) => <option key={s}>{s}</option>)}</select>}>
       <Table rows={data} cols={[
         { key: "code", label: "Ref" }, { key: "kind", label: "Type", render: (r: any) => r.kind.replace(/_/g, " ") }, { key: "title", label: "Request" },
         { key: "amount", label: "Amount", render: (r: any) => (r.amount ? inr(r.amount) : "—") }, { key: "maker_reason", label: "Reason" },

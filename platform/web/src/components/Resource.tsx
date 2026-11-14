@@ -12,7 +12,7 @@ export function ResourcePage({ title, path, cols, fields, canWrite = true, note,
   const [editing, setEditing] = useState<any>(null);
   return (
     <Card title={title} note={note} actions={<>
-      <input placeholder="Search…" value={q} onChange={(e) => setQ(e.target.value)} className="search" />
+      <input aria-label="Search" placeholder="Search…" value={q} onChange={(e) => setQ(e.target.value)} className="search" />
       {canWrite && <Btn onClick={() => setCreating(true)}>+ New</Btn>}
     </>}>
       <Table rows={data} cols={cols} onRow={canWrite ? setEditing : undefined} />

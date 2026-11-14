@@ -9,4 +9,4 @@ RUN useradd -m grl && mkdir -p /app/var && chown -R grl /app/var
 USER grl
 EXPOSE 8000
 # Migrations run on start; the API never starts against an un-migrated database.
-CMD ["sh", "-c", "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000 --proxy-headers"]
+CMD ["sh", "-c", "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000 --proxy-headers --workers ${GRL_API_WORKERS:-2}"]

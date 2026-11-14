@@ -117,6 +117,7 @@ function Users() {
       <Card title="Users" note="Role changes and deactivation revoke sessions immediately." actions={<Btn onClick={() => setAdding(true)}>+ User</Btn>}>
         <Table rows={users.data} cols={[{ key: "name", label: "Name" }, { key: "email", label: "Email" }, { key: "phone", label: "Phone" }, { key: "roles", label: "Roles", render: (r: any) => r.roles.join(", ") },
           { key: "is_active", label: "Active" }, { key: "last_login_at", label: "Last login", date: true }, { key: "access_valid_to", label: "Access until", date: true },
+          { key: "m", label: "", render: (r: any) => <Btn kind="ghost" onClick={async () => { const reason = prompt("Reset two-step sign-in - identity verified how?"); if (reason) { await post(`/users/${r.id}/mfa-reset`, { reason }); toast("Two-step reset; sessions revoked"); } }}>Reset 2-step</Btn> },
           { key: "a", label: "", render: (r: any) => r.is_active && <Btn kind="ghost" onClick={async () => { const reason = prompt("Reason for deactivation"); if (reason) { try { await post(`/users/${r.id}/deactivate`, { roles: [], reason }); users.reload(); } catch (e: any) { toast(e.message, "red"); } } }}>Deactivate</Btn> }]} />
       </Card>
       <Card title="Roles"><Table rows={roles.data?.roles} onRow={setRoleView} cols={[{ key: "name", label: "Role" }, { key: "code", label: "Code" }, { key: "is_external", label: "External" },
@@ -170,7 +171,7 @@ function Audit() {
   const [ver, setVer] = useState<any>(null);
   return (
     <Card title="Audit trail (hash-chained, tamper-evident)" actions={<>
-      <input placeholder="Entity (e.g. booking)" value={entity} onChange={(e) => setEntity(e.target.value)} />
+      <input aria-label="Entity filter" placeholder="Entity (e.g. booking)" value={entity} onChange={(e) => setEntity(e.target.value)} />
       <Btn kind="ghost" onClick={async () => setVer(await get("/audit/verify"))}>Verify chain</Btn></>}>
       {ver && <p><Badge v={ver.ok ? "ok" : "failed"} /> {ver.ok ? `Chain intact (${ver.checked} records)` : `Chain broken at record ${ver.broken_at_id}`}</p>}
       <Table rows={data} cols={[{ key: "at", label: "When", date: true }, { key: "actor", label: "Who" }, { key: "action", label: "Action" }, { key: "entity", label: "Entity" },
