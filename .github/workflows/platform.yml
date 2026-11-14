@@ -63,3 +63,29 @@ jobs:
           path: |
             platform/mobile/driver_app/build/app/outputs/flutter-apk/app-debug.apk
             platform/mobile/management_app/build/app/outputs/flutter-apk/app-debug.apk
+
+  docker:
+    runs-on: ubuntu-latest
+    defaults: { run: { working-directory: platform } }
+    steps:
+      - uses: actions/checkout@v4
+      - name: Create CI .env (throwaway secrets)
+        run: |
+          cp .env.example .env
+          sed -i "s/change-me-strong-db-password/ci$(openssl rand -hex 12)/; s/change-me-to-a-long-random-secret-of-at-least-32-chars/$(openssl rand -hex 32)/; s/change-me-separate-backup-key/$(openssl rand -hex 20)/" .env
+      - run: docker compose build
+      - run: docker compose up -d
+      - name: Wait for API health through nginx
+        run: |
+          for i in $(seq 1 60); do curl -fsS http://localhost:8080/api/v1/health && exit 0; sleep 3; done
+          docker compose logs api; exit 1
+      - name: Seed and sign in
+        run: |
+          docker compose exec -T -e GRL_ADMIN_PASSWORD=CiOwner12345x api python -m app.seed --demo
+          curl -fsS -X POST http://localhost:8080/api/v1/auth/login -H 'content-type: application/json' \
+            -d '{"identifier":"owner@groadlines.local","password":"CiOwner12345x"}' | grep -q token
+          curl -fsS http://localhost:8080/ | grep -q 'id="root"'
+      - name: Encrypted backup inside container
+        run: docker compose exec -T api python scripts/backup.py --out /app/var/backups
+      - if: always()
+        run: docker compose logs --tail 100

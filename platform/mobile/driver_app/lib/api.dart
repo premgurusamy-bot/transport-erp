@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:math';
 
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiException implements Exception {
@@ -70,6 +71,28 @@ class Api {
       throw ApiException(r.statusCode, e['code'] ?? 'error', e['message'] ?? 'Error ${r.statusCode}');
     }
     return data;
+  }
+
+  /// Upload a photo (POD, cargo, bill) to encrypted document storage; returns the document id.
+  Future<String> uploadPhoto(List<int> bytes, {required String docType, required String entity, required String entityId, double? lat, double? lng}) async {
+    final req = http.MultipartRequest('POST', Uri.parse('$baseUrl/api/v1/documents'))
+      ..headers.addAll({'X-GRL-App': 'driver', if (token != null) 'Authorization': 'Bearer $token'})
+      ..fields.addAll({'doc_type': docType, 'entity': entity, 'entity_id': entityId, if (lat != null) 'lat': '$lat', if (lng != null) 'lng': '$lng',
+        'captured_at': DateTime.now().toUtc().toIso8601String()})
+      ..files.add(http.MultipartFile.fromBytes('file', bytes, filename: 'photo.jpg', contentType: MediaType('image', 'jpeg')));
+    http.StreamedResponse r;
+    try {
+      r = await req.send().timeout(const Duration(seconds: 60));
+    } catch (_) {
+      throw ApiException(0, 'offline', 'No connection - photo not uploaded; try again when online');
+    }
+    final body = await r.stream.bytesToString();
+    final data = body.isEmpty ? null : jsonDecode(body);
+    if (r.statusCode >= 400) {
+      final e = (data is Map ? data['error'] : null) ?? {};
+      throw ApiException(r.statusCode, e['code'] ?? 'error', e['message'] ?? 'Upload failed');
+    }
+    return data['id'];
   }
 
   // ---------------- offline queue (replayed idempotently by /sync/events)

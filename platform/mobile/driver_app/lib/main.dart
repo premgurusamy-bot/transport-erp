@@ -5,8 +5,10 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:image_picker/image_picker.dart';
 
 import 'api.dart';
+import 'scan_page.dart';
 import 'strings.dart';
 
 void main() async {
@@ -223,7 +225,11 @@ class _TripPageState extends State<TripPage> {
           ],
           Row(children: [
             Expanded(child: TextField(controller: label, decoration: const InputDecoration(labelText: 'Package label (QR)'))),
-            IconButton(icon: const Icon(Icons.qr_code_scanner), onPressed: () => _do(() {
+            IconButton(icon: const Icon(Icons.camera_alt), tooltip: 'Scan with camera', onPressed: () async {
+              final v = await Navigator.of(context).push<String>(MaterialPageRoute(builder: (_) => const ScanPage()));
+              if (v != null) setState(() => label.text = v);
+            }),
+            IconButton(icon: const Icon(Icons.qr_code_scanner), tooltip: 'Submit scan', onPressed: () => _do(() {
                   final stage = onTrip ? 'unloaded' : 'loaded';
                   final id = newEventId();
                   final body = {'label': label.text.trim(), 'trip_id': trip['id'], 'stage': stage, 'client_event_id': id};
@@ -265,6 +271,21 @@ class _PodPageState extends State<PodPage> {
   late final count = TextEditingController(text: '${widget.load['packages']}');
   String condition = 'good';
   String? msg;
+  final List<String> photoIds = [];
+
+  Future<void> _photo() async {
+    final x = await ImagePicker().pickImage(source: ImageSource.camera, imageQuality: 70, maxWidth: 1600);
+    if (x == null) return;
+    try {
+      final id = await Api.instance.uploadPhoto(await x.readAsBytes(), docType: 'pod', entity: 'booking', entityId: widget.load['booking_id']);
+      setState(() {
+        photoIds.add(id);
+        msg = '${photoIds.length} photo(s) attached';
+      });
+    } on ApiException catch (e) {
+      setState(() => msg = e.message);
+    }
+  }
 
   @override
   Widget build(BuildContext context) => Scaffold(
@@ -283,13 +304,14 @@ class _PodPageState extends State<PodPage> {
           TextField(controller: otp, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'OTP from receiver')),
           TextField(controller: count, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Packages delivered')),
           TextField(controller: receiver, decoration: const InputDecoration(labelText: 'Receiver name')),
+          OutlinedButton.icon(onPressed: _photo, icon: const Icon(Icons.photo_camera), label: Text('Add photo (${photoIds.length})')),
           DropdownButton<String>(value: condition, items: ['good', 'damaged', 'wet', 'open', 'short'].map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(), onChanged: (v) => setState(() => condition = v!)),
           FilledButton(
               onPressed: () async {
                 try {
                   await Api.instance.post('/pod', {
                     'trip_id': widget.trip['id'], 'booking_id': widget.load['booking_id'], 'delivered_count': int.tryParse(count.text) ?? 0,
-                    'receiver_name': receiver.text, 'otp': otp.text.isEmpty ? null : otp.text, 'condition': condition,
+                    'receiver_name': receiver.text, 'otp': otp.text.isEmpty ? null : otp.text, 'condition': condition, 'photo_document_ids': photoIds,
                   });
                   if (context.mounted) Navigator.of(context).pop();
                 } on ApiException catch (e) {
