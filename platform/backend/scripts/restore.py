@@ -21,6 +21,8 @@ from sqlalchemy.engine import make_url
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from scripts.backup import _key, pg_env, table_counts  # noqa: E402
 
+UNSUPPORTED_SETTINGS = (b"SET transaction_timeout",)
+
 
 def restore(backup_file: Path, target_url: str) -> dict:
     manifest = json.loads(backup_file.with_name(backup_file.name.replace(".dump.enc", ".manifest.json")).read_text())
@@ -30,7 +32,13 @@ def restore(backup_file: Path, target_url: str) -> dict:
     raw = AESGCM(_key()).decrypt(enc[:12], enc[12:], None)
     env, conn = pg_env(target_url)
     db = make_url(target_url).database
-    subprocess.run(["pg_restore", *conn, "--clean", "--if-exists", "--no-owner", "-d", db], input=raw, env=env, check=True, capture_output=True)
+    # Convert the dump to SQL locally, then drop session settings unknown to older servers (a newer pg_dump client
+    # emits e.g. "SET transaction_timeout", which PostgreSQL 16 rejects), and apply atomically with psql.
+    sql = subprocess.run(["pg_restore", "--clean", "--if-exists", "--no-owner", "-f", "-"], input=raw, check=True, capture_output=True).stdout
+    sql = b"\n".join(line for line in sql.split(b"\n") if not line.startswith(UNSUPPORTED_SETTINGS))
+    r = subprocess.run(["psql", *conn, "-q", "-X", "-v", "ON_ERROR_STOP=1", "--single-transaction", "-d", db], input=sql, env=env, capture_output=True)
+    if r.returncode != 0:
+        raise SystemExit("Restore failed (nothing committed): " + r.stderr.decode(errors="replace")[-2000:])
     after = table_counts(target_url)
     mismatches = {t: (n, after["tables"].get(t)) for t, n in manifest["tables"].items() if after["tables"].get(t) != n}
     eng = create_engine(target_url)
