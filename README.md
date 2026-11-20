@@ -1,3 +1,7 @@
+> **This repository also contains `svsl-erp/` – the Sri Vengarai Suraj Logistics Transport & Logistics ERP**
+> (FastAPI + PostgreSQL + React). See [svsl-erp/README.md](svsl-erp/README.md). The G Road Lines application below is
+> unchanged and independent.
+
 # G ROAD LINES – Transport Agent ERP (V1.0.0)
 
 A complete ERP for a transport agent: customers, transporters, vehicles, drivers, trips, freight, hire, trip expenses,

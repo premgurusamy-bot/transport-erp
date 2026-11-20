@@ -1,0 +1,156 @@
+import React, { useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { api, can, qs } from "../lib/api";
+import { dt, inr, num, today } from "../lib/format";
+import { Badge, Btn, Card, Field, Kpi, Modal, Page, Pager, ReasonModal, RefSelect, Search, Table, Tabs, run, useLoad } from "../components/ui";
+
+export const STAGES = ["Booked", "Vehicle Allocated", "Driver Allocated", "LR Generated", "Loading", "Dispatched", "In Transit", "Delivered", "POD Collected", "Closed", "Billed", "Settled"];
+const EXP_CATS = ["Diesel", "Toll", "Parking", "RTO / Check Post", "Loading", "Unloading", "Driver Bata", "Food", "Police / Fine", "Repair on Road", "Weighbridge", "Tyre Puncture", "Phone", "Other"];
+
+function NewTrip({ onDone, onClose }: { onDone: (t: any) => void; onClose: () => void }) {
+  const [f, setF] = useState<any>({ trip_date: today() });
+  const recent = useLoad<any>("/api/trips?limit=100");
+  return <Modal title="New trip" onClose={onClose} footer={<Btn kind="primary" onClick={async () => { const t = await run(() => api.post("/api/trips", f), "Trip created"); if (t) onDone(t); }}>Create trip</Btn>}>
+    <div className="form-grid">
+      <Field label="Trip date"><input type="date" value={f.trip_date} onChange={(e) => setF({ ...f, trip_date: e.target.value })} /></Field>
+      <Field label="Customer"><RefSelect refName="customers" value={f.customer_id} onChange={(v) => setF({ ...f, customer_id: v })} /></Field>
+      <Field label="Route"><RefSelect refName="routes" value={f.route_id} onChange={(v) => setF({ ...f, route_id: v })} /></Field>
+      <Field label="From"><input value={f.from_place || ""} onChange={(e) => setF({ ...f, from_place: e.target.value })} /></Field>
+      <Field label="To"><input value={f.to_place || ""} onChange={(e) => setF({ ...f, to_place: e.target.value })} /></Field>
+      <Field label="Vehicle"><RefSelect refName="vehicles" value={f.vehicle_id} onChange={(v) => setF({ ...f, vehicle_id: v })} /></Field>
+      <Field label="Driver"><RefSelect refName="drivers" value={f.driver_id} onChange={(v) => setF({ ...f, driver_id: v })} /></Field>
+      <Field label="Planned departure"><input type="datetime-local" value={f.planned_departure || ""} onChange={(e) => setF({ ...f, planned_departure: e.target.value })} /></Field>
+      <Field label="Expected delivery"><input type="datetime-local" value={f.expected_delivery_at || ""} onChange={(e) => setF({ ...f, expected_delivery_at: e.target.value })} /></Field>
+      <Field label="Return trip of"><select value={f.return_of_trip_id || ""} onChange={(e) => setF({ ...f, return_of_trip_id: e.target.value || null })}><option value="">— not a return trip —</option>{(recent.data?.items || []).filter((t: any) => t.stage !== "Cancelled").map((t: any) => <option key={t.id} value={t.id}>{t.trip_no} {t.from_place}→{t.to_place} {t.vehicle_no || ""}</option>)}</select></Field>
+      <Field label="Remarks" wide><textarea value={f.remarks || ""} onChange={(e) => setF({ ...f, remarks: e.target.value })} /></Field>
+    </div>
+  </Modal>;
+}
+
+export function TripDetail({ id, onClose }: { id: number; onClose: () => void }) {
+  const nav = useNavigate();
+  const { data: t, reload } = useLoad<any>(`/api/trips/${id}`);
+  const [act, setAct] = useState<any>(null);
+  const [tab, setTab] = useState("LRs");
+  if (!t) return null;
+  const idx = STAGES.indexOf(t.stage);
+  const next = STAGES[idx + 1];
+  const canWrite = can("trips:write") && !["Closed", "Billed", "Settled", "Cancelled"].includes(t.stage);
+  const doStage = (stage: string, extra: any = {}) => run(() => api.post(`/api/trips/${id}/stage`, { stage, ...extra }), `Trip moved to ${stage}`).then((r) => { if (r) { setAct(null); reload(); } });
+  return <Modal wide title={`Trip ${t.trip_no}`} onClose={onClose} footer={<Btn onClick={onClose}>Close</Btn>}>
+    <div className="stepper">{STAGES.map((s, i) => <div key={s} className={`step ${i <= idx ? "done" : ""} ${i === idx ? "cur" : ""}`}>{s}</div>)}{t.stage === "Cancelled" && <div className="step cur bad">Cancelled</div>}</div>
+    {t.delayed && <div className="warn-box">Delivery is delayed (expected {dt(t.expected_delivery_at)})</div>}
+    <div className="row gap wrap">
+      {canWrite && <>
+        {["Booked", "Vehicle Allocated", "Driver Allocated", "LR Generated", "Loading"].includes(t.stage) && <Btn small onClick={() => setAct({ kind: "allocate", vehicle_id: t.vehicle_id, driver_id: t.driver_id })}>Allocate vehicle / driver</Btn>}
+        {idx >= 2 && idx < 7 && <Btn small onClick={() => nav(`/lr?new=1&trip_id=${t.id}`)}>+ LR</Btn>}
+        {t.stage === "LR Generated" && <Btn small kind="primary" onClick={() => doStage("Loading")}>Loading started</Btn>}
+        {["LR Generated", "Loading"].includes(t.stage) && <Btn small kind="primary" onClick={() => setAct({ kind: "dispatch", start_km: t.start_km ?? "", fuel_opening_litres: "" })}>Dispatch</Btn>}
+        {t.stage === "Dispatched" && <Btn small onClick={() => doStage("In Transit")}>In transit</Btn>}
+        {["Dispatched", "In Transit"].includes(t.stage) && <Btn small kind="primary" onClick={() => setAct({ kind: "deliver", receiver_name: "" })}>Delivered</Btn>}
+        {t.stage === "Delivered" && <Btn small kind="primary" onClick={() => doStage("POD Collected")}>POD collected</Btn>}
+        {["Delivered", "POD Collected"].includes(t.stage) && <Btn small kind="primary" onClick={() => setAct({ kind: "close", end_km: "", fuel_closing_litres: "", waiting_hours: "", detention_days: "" })}>Close trip</Btn>}
+        <Btn small onClick={() => setAct({ kind: "expense", category: "Toll", paid_by: "Driver Cash", expense_date: today() })}>+ Expense</Btn>
+        {!t.dispatched_at && <Btn small kind="danger" onClick={() => setAct({ kind: "cancel" })}>Cancel trip</Btn>}
+      </>}
+    </div>
+    <div className="kpis small">
+      <Kpi label="Revenue" value={inr(t.pnl.revenue)} /><Kpi label="Expenses" value={inr(t.pnl.expenses)} /><Kpi label="Profit" value={inr(t.pnl.profit)} tone={Number(t.pnl.profit) >= 0 ? "good" : "bad"} sub={t.pnl.margin_pct ? `${t.pnl.margin_pct}%` : ""} />
+      <Kpi label="Km" value={num(t.pnl.km)} sub={t.pnl.kmpl ? `${t.pnl.kmpl} km/L` : ""} />
+    </div>
+    <div className="kv">{[["Customer", t.customer_name], ["Route", `${t.from_place} → ${t.to_place}`], ["Vehicle", t.vehicle_no], ["Driver", `${t.driver_name || ""} ${t.driver_mobile || ""}`], ["Start / end km", `${t.start_km ?? "-"} / ${t.end_km ?? "-"}`], ["Dispatched", dt(t.dispatched_at)], ["Expected", dt(t.expected_delivery_at)], ["Delivered", dt(t.delivered_at)], ["Closed", dt(t.closed_at)], ["Advance to driver", inr(t.advance_to_driver)], ["Return trip", t.is_return ? "Yes" : ""]].filter(([, v]) => v).map(([k, v]) => <div key={k}><span>{k}</span><b>{v}</b></div>)}</div>
+    <Tabs tabs={["LRs", "Expenses", "Timeline", "FASTag", "Location"]} value={tab} onChange={setTab} />
+    {tab === "LRs" && <Table dense cols={[{ key: "lr_no", label: "LR" }, { key: "consignee_name", label: "Consignee" }, { key: "to_place", label: "To" }, { key: "total_freight", label: "Freight", type: "money" }, { key: "status", label: "Status", type: "badge" }]} rows={t.lrs} onRow={(l) => nav(`/lr?id=${l.id}`)} />}
+    {tab === "Expenses" && <Table dense cols={[{ key: "expense_date", label: "Date", type: "date" }, { key: "category", label: "Category" }, { key: "amount", label: "Amount", type: "money" }, { key: "litres", label: "Litres", type: "number" }, { key: "paid_by", label: "Paid by" }, { key: "entered_via", label: "Via" },
+      { key: "approved", label: "", render: (e) => e.approved ? "" : <Btn small onClick={async () => { await run(() => api.post(`/api/trips/${id}/approve-expense/${e.id}`), "Approved"); reload(); }}>Approve</Btn> },
+      { key: "del", label: "", render: (e) => can("accounts:cancel") && !t.driver_settlement_id ? <Btn small kind="ghost" onClick={async () => { const r = prompt("Reason for removing this expense?"); if (r) { await run(() => api.del(`/api/trips/${id}/expenses/${e.id}?reason=${encodeURIComponent(r)}`), "Removed (voucher reversed)"); reload(); } }}>Remove</Btn> : null }]}
+      rows={t.expenses} totals={{ amount: t.pnl.expenses }} />}
+    {tab === "Timeline" && <Table dense cols={[{ key: "at", label: "When", type: "datetime" }, { key: "stage", label: "Stage", type: "badge" }, { key: "note", label: "Note" }, { key: "odometer", label: "Km", type: "number" }]} rows={t.events} />}
+    {tab === "FASTag" && <Table dense cols={[{ key: "at", label: "When", type: "datetime" }, { key: "plaza", label: "Plaza" }, { key: "amount", label: "Amount", type: "money" }]} rows={t.fastag} empty="No FASTag debits matched to this trip" />}
+    {tab === "Location" && <LocationTab id={id} />}
+    {act?.kind === "allocate" && <Modal title="Allocate" onClose={() => setAct(null)} footer={<Btn kind="primary" onClick={async () => { if (await run(() => api.put(`/api/trips/${id}`, act), "Allocated")) { setAct(null); reload(); } }}>Save</Btn>}>
+      <Field label="Vehicle"><RefSelect refName="vehicles" value={act.vehicle_id} onChange={(v) => setAct({ ...act, vehicle_id: v })} /></Field>
+      <Field label="Driver"><RefSelect refName="drivers" value={act.driver_id} onChange={(v) => setAct({ ...act, driver_id: v })} /></Field>
+    </Modal>}
+    {act?.kind === "dispatch" && <Modal title="Dispatch vehicle" onClose={() => setAct(null)} footer={<Btn kind="primary" onClick={() => doStage("Dispatched", act)}>Dispatch</Btn>}>
+      <Field label="Starting km" required><input type="number" value={act.start_km} onChange={(e) => setAct({ ...act, start_km: e.target.value })} /></Field>
+      <Field label="Fuel in tank (litres)"><input type="number" value={act.fuel_opening_litres} onChange={(e) => setAct({ ...act, fuel_opening_litres: e.target.value })} /></Field>
+    </Modal>}
+    {act?.kind === "deliver" && <Modal title="Delivery" onClose={() => setAct(null)} footer={<Btn kind="primary" onClick={() => doStage("Delivered", act)}>Confirm delivery</Btn>}>
+      <Field label="Received by"><input value={act.receiver_name} onChange={(e) => setAct({ ...act, receiver_name: e.target.value })} /></Field>
+      <Field label="Delivered at"><input type="datetime-local" value={act.at || ""} onChange={(e) => setAct({ ...act, at: e.target.value })} /></Field>
+    </Modal>}
+    {act?.kind === "close" && <Modal title="Close trip" onClose={() => setAct(null)} footer={<Btn kind="primary" onClick={() => doStage("Closed", act)}>Close trip</Btn>}>
+      <div className="form-grid">
+        <Field label="Closing km" required><input type="number" value={act.end_km} onChange={(e) => setAct({ ...act, end_km: e.target.value })} /></Field>
+        <Field label="Fuel left (litres)"><input type="number" value={act.fuel_closing_litres} onChange={(e) => setAct({ ...act, fuel_closing_litres: e.target.value })} /></Field>
+        <Field label="Waiting hours"><input type="number" value={act.waiting_hours} onChange={(e) => setAct({ ...act, waiting_hours: e.target.value })} /></Field>
+        <Field label="Detention days"><input type="number" value={act.detention_days} onChange={(e) => setAct({ ...act, detention_days: e.target.value })} /></Field>
+        <Field label="POD still pending – close anyway"><input type="checkbox" checked={!!act.pod_all} onChange={(e) => setAct({ ...act, pod_all: e.target.checked })} /></Field>
+      </div>
+    </Modal>}
+    {act?.kind === "expense" && <Modal title="Trip expense" onClose={() => setAct(null)} footer={<Btn kind="primary" onClick={async () => { if (await run(() => api.post(`/api/trips/${id}/expenses`, act), "Expense recorded & posted")) { setAct(null); reload(); } }}>Save</Btn>}>
+      <div className="form-grid">
+        <Field label="Date"><input type="date" value={act.expense_date} onChange={(e) => setAct({ ...act, expense_date: e.target.value })} /></Field>
+        <Field label="Category"><select value={act.category} onChange={(e) => setAct({ ...act, category: e.target.value })}>{EXP_CATS.map((c) => <option key={c}>{c}</option>)}</select></Field>
+        {act.category === "Diesel" ? <>
+          <Field label="Litres"><input type="number" value={act.litres || ""} onChange={(e) => setAct({ ...act, litres: e.target.value })} /></Field>
+          <Field label="Rate / litre"><input type="number" value={act.rate || ""} onChange={(e) => setAct({ ...act, rate: e.target.value })} /></Field>
+          <Field label="Odometer"><input type="number" value={act.odometer || ""} onChange={(e) => setAct({ ...act, odometer: e.target.value })} /></Field>
+          <Field label="Full tank"><input type="checkbox" checked={act.full_tank !== false} onChange={(e) => setAct({ ...act, full_tank: e.target.checked })} /></Field>
+          <Field label="Fuel station"><RefSelect refName="fuel_stations" value={act.station_id} onChange={(v) => setAct({ ...act, station_id: v })} /></Field>
+        </> : <Field label="Amount ₹"><input type="number" value={act.amount || ""} onChange={(e) => setAct({ ...act, amount: e.target.value })} /></Field>}
+        <Field label="Paid by"><select value={act.paid_by} onChange={(e) => setAct({ ...act, paid_by: e.target.value })}>{["Driver Cash", "Company Cash", "Bank", "Fuel Card", "FASTag", "Vendor Credit"].map((c) => <option key={c}>{c}</option>)}</select></Field>
+        {act.paid_by === "Vendor Credit" && <Field label="Vendor"><RefSelect refName="vendors" value={act.vendor_id} onChange={(v) => setAct({ ...act, vendor_id: v })} /></Field>}
+        <Field label="Bill no"><input value={act.bill_no || ""} onChange={(e) => setAct({ ...act, bill_no: e.target.value })} /></Field>
+        <Field label="Remarks" wide><input value={act.remarks || ""} onChange={(e) => setAct({ ...act, remarks: e.target.value })} /></Field>
+      </div>
+    </Modal>}
+    {act?.kind === "cancel" && <ReasonModal title="Cancel trip" onClose={() => setAct(null)} onSubmit={async (reason) => { const r = await run(() => api.post(`/api/trips/${id}/cancel`, { reason }), "Trip cancelled"); reload(); return r; }} />}
+  </Modal>;
+}
+
+function LocationTab({ id }: { id: number }) {
+  const { data } = useLoad<any[]>(`/api/trips/${id}/locations`);
+  const last = data && data[data.length - 1];
+  return <div>
+    <p className="muted small">Locations are recorded only from drivers who have given consent in the driver app, and only during an active trip.</p>
+    {last && <p>Last position {dt(last.at)}: <a target="_blank" rel="noreferrer" href={`https://www.openstreetmap.org/?mlat=${last.lat}&mlon=${last.lng}#map=12/${last.lat}/${last.lng}`}>{last.lat}, {last.lng} (open map)</a></p>}
+    <Table dense cols={[{ key: "at", label: "When", type: "datetime" }, { key: "lat", label: "Lat" }, { key: "lng", label: "Lng" }]} rows={data || []} empty="No location data" />
+  </div>;
+}
+
+export default function Trips() {
+  const [sp, setSp] = useSearchParams();
+  const [q, setQ] = useState("");
+  const [stage, setStage] = useState("open");
+  const [date, setDate] = useState("");
+  const [offset, setOffset] = useState(0);
+  const [creating, setCreating] = useState(false);
+  const list = useLoad<any>(`/api/trips${qs({ q, offset, limit: 50, ...(stage === "open" ? { open: 1 } : stage ? { stage } : {}), from: date, to: date })}`);
+  return <Page title="Trips" actions={can("trips:write") && <Btn kind="primary" onClick={() => setCreating(true)}>+ New trip</Btn>}>
+    <div className="toolbar"><Search value={q} onChange={setQ} placeholder="Trip no, place…" />
+      <select value={stage} onChange={(e) => setStage(e.target.value)}><option value="open">Open trips</option><option value="">All</option>{[...STAGES, "Cancelled"].map((s) => <option key={s}>{s}</option>)}</select>
+      <label className="row gap small">Daily trip sheet <input type="date" value={date} onChange={(e) => setDate(e.target.value)} /></label></div>
+    <Table cols={[{ key: "trip_no", label: "Trip" }, { key: "trip_date", label: "Date", type: "date" }, { key: "customer_name", label: "Customer" }, { key: "from_place", label: "From" }, { key: "to_place", label: "To" }, { key: "vehicle_no", label: "Vehicle" }, { key: "driver_name", label: "Driver" }, { key: "stage", label: "Stage", type: "badge" }, { key: "delayed", label: "Delay", render: (r) => r.delayed ? <span className="badge bad">Delayed</span> : "" }]}
+      rows={list.data?.items || []} onRow={(r) => setSp({ id: String(r.id) })} />
+    <Pager total={list.data?.total || 0} limit={50} offset={offset} onChange={setOffset} />
+    {creating && <NewTrip onClose={() => setCreating(false)} onDone={(t) => { setCreating(false); list.reload(); setSp({ id: String(t.id) }); }} />}
+    {sp.get("id") && <TripDetail id={Number(sp.get("id"))} onClose={() => { setSp({}); list.reload(); }} />}
+  </Page>;
+}
+
+export function FleetBoard() {
+  const { data } = useLoad<any>("/api/fleet/availability");
+  const nav = useNavigate();
+  if (!data) return null;
+  const groups: Record<string, any[]> = {};
+  data.vehicles.forEach((v: any) => (groups[v.status] = groups[v.status] || []).push(v));
+  return <Page title="Fleet board">
+    <div className="kpis">{Object.entries(groups).map(([s, vs]) => <Kpi key={s} label={s} value={vs.length} />)}<Kpi label="Drivers available" value={data.drivers.filter((d: any) => d.status === "Available").length} /></div>
+    <div className="board">{data.vehicles.map((v: any) => <div key={v.id} className={`vcard ${v.status.replace(/\s/g, "").toLowerCase()}`} onClick={() => v.trip ? nav(`/trips?id=${v.trip.id}`) : nav("/vehicles")}>
+      <b>{v.registration_no}</b><small>{v.vehicle_type}</small><Badge v={v.status} />{v.trip && <small>{v.trip.trip_no} · {v.trip.stage} → {v.trip.to}</small>}
+    </div>)}</div>
+    <Card title="Drivers"><Table dense cols={[{ key: "name", label: "Driver" }, { key: "mobile", label: "Mobile" }, { key: "status", label: "Status", type: "badge" }, { key: "licence_expiry", label: "Licence expiry", type: "date" }]} rows={data.drivers} /></Card>
+  </Page>;
+}

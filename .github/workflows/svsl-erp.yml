@@ -1,0 +1,53 @@
+# Sri Vengarai Suraj Logistics ERP (svsl-erp/): backend tests on PostgreSQL + frontend type-check & build.
+name: svsl-erp
+
+on:
+  push:
+    paths: ["svsl-erp/**", ".github/workflows/svsl-erp.yml"]
+  pull_request:
+    paths: ["svsl-erp/**", ".github/workflows/svsl-erp.yml"]
+  workflow_dispatch:
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: svsl_erp_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      TEST_DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/svsl_erp_test
+      DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/svsl_erp_test
+    defaults:
+      run:
+        working-directory: svsl-erp/backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - run: pip install -r requirements.txt
+      - run: python -m pytest -q
+      - name: Migrations apply cleanly and match the models
+        run: |
+          psql postgresql://postgres:postgres@localhost:5432/postgres -c "CREATE DATABASE svsl_migrate"
+          DATABASE_URL=postgresql+psycopg://postgres:postgres@localhost:5432/svsl_migrate alembic upgrade head
+          DATABASE_URL=postgresql+psycopg://postgres:postgres@localhost:5432/svsl_migrate alembic check
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: svsl-erp/frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - run: npm run build

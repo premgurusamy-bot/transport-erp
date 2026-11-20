@@ -82,7 +82,11 @@ async def upload_logo(file: UploadFile = File(...), db: Session = Depends(get_db
 def get_logo(db: Session = Depends(get_db)):
     c = app_settings.company(db)
     if not c.logo_path or not (get_settings().storage_dir / c.logo_path).exists():
-        raise AppError("No logo", 404)
+        from fastapi.responses import Response
+
+        svg = ('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="12" fill="#0f4c81"/>'
+               '<path d="M10 38h30V20H10zM40 26h8l6 7v5h-14z" fill="#fff"/><circle cx="20" cy="42" r="5" fill="#f5a623"/><circle cx="46" cy="42" r="5" fill="#f5a623"/></svg>')
+        return Response(svg, media_type="image/svg+xml")
     return FileResponse(get_settings().storage_dir / c.logo_path)
 
 

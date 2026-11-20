@@ -316,7 +316,7 @@ def payslip_pdf(sid: int, db: Session = Depends(get_db), user: CurrentUser = Dep
 def compliance_generate(data: dict, db: Session = Depends(get_db), user: CurrentUser = Depends(require("compliance:write"))):
     from ..core.numbering import financial_year
 
-    n = people.generate_compliance(db, data.get("fy") or financial_year(date.today()))
+    n = people.generate_compliance(db, data.get("fy") or financial_year(date.today()), bool(data.get("include_past")))
     db.commit()
     return {"created": n}
 

@@ -1,0 +1,15 @@
+# /etc/systemd/system/svsl-erp.service  →  systemctl enable --now svsl-erp
+[Unit]
+Description=SVSL Transport ERP
+After=network.target postgresql.service
+
+[Service]
+User=svsl
+WorkingDirectory=/opt/svsl-erp/backend
+EnvironmentFile=/opt/svsl-erp/backend/.env
+ExecStartPre=/opt/svsl-erp/venv/bin/alembic upgrade head
+ExecStart=/opt/svsl-erp/venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000 --proxy-headers --workers 1
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

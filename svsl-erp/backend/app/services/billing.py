@@ -132,6 +132,8 @@ def create_invoice(db: Session, user, data: dict) -> Invoice:
         lrs = db.query(Consignment).filter(Consignment.customer_id == customer.id, Consignment.rate_contract_id == contract.id, Consignment.lr_date.between(p_from, p_to), Consignment.status != "Cancelled", Consignment.invoice_id.is_(None)).all()
         data = {**data, "period_from": p_from, "period_to": p_to}
     elif basis in ("manual", "warehouse"):
+        if basis == "warehouse":
+            data = {**data, "period_from": date.fromisoformat(str(data["period_from"])[:10]), "period_to": date.fromisoformat(str(data["period_to"])[:10])}
         for ln in data.get("lines") or []:
             amt = r2(ln.get("amount")) if ln.get("amount") not in (None, "") else r2(D(ln.get("quantity") or 1) * D(ln.get("rate")))
             if not (ln.get("description") or "").strip() or amt <= 0:
@@ -166,7 +168,8 @@ def create_invoice(db: Session, user, data: dict) -> Invoice:
         billing_name=customer.legal_name or customer.name, billing_address=customer.billing_address, customer_gstin=customer.gstin,
         place_of_supply=pos, supplier_state_code=supplier_state, supplier_gstin=supplier_gstin, gst_treatment_id=treatment.id,
         gst_treatment_code=treatment.code, sac=treatment.sac, charge_mechanism=treatment.charge_mechanism, gst_rate=treatment.gst_rate,
-        is_interstate=tax["interstate"], basis=basis, period_from=data.get("period_from"), period_to=data.get("period_to"),
+        is_interstate=tax["interstate"], basis=basis,
+        period_from=data.get("period_from") if basis in ("monthly_contract", "warehouse") else None, period_to=data.get("period_to") if basis in ("monthly_contract", "warehouse") else None,
         reference_invoice_id=ref.id if ref else None, reason=data.get("reason"), po_number=data.get("po_number") or customer.po_number,
         taxable_value=taxable, cgst=tax["cgst"], sgst=tax["sgst"], igst=tax["igst"], rcm_tax=tax["rcm_tax"], round_off=round_off, total=total,
         due_date=inv_date + timedelta(days=int(due_days or 0)), status="Issued", notes=data.get("notes"), created_by=user.id,

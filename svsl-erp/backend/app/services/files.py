@@ -198,12 +198,12 @@ def restore_backup(db: Session, user, path: Path, keep_users: bool = True) -> di
         manifest = json.loads(z.read("manifest.json"))
         all_tables = Base.metadata.sorted_tables
         # backup history and the audit trail are append-only: keep the current ones (unless empty, e.g. a new server)
-        kept_names = (SKIP_ON_RESTORE_KEEP_USERS if keep_users else set()) | {"backup_records", "audit_logs"}
+        kept_names = (SKIP_ON_RESTORE_KEEP_USERS if keep_users else set()) | {"backup_records", "audit_logs", "user_sessions"}
         kept: dict[str, list[dict]] = {}
         for t in all_tables:
             if t.name in kept_names:
                 kept[t.name] = [dict(r._mapping) for r in db.execute(t.select())]
-        kept_names = {n for n in kept_names if kept.get(n) or n in SKIP_ON_RESTORE_KEEP_USERS and keep_users}
+        kept_names = {n for n in kept_names if kept.get(n) or n == "user_sessions" or (n in SKIP_ON_RESTORE_KEEP_USERS and keep_users)}
         counts = {}
         try:
             names = ", ".join(f'"{t.name}"' for t in all_tables)

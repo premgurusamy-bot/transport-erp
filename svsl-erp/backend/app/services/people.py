@@ -170,7 +170,9 @@ def _due(year: int, month: int, offset: int, day: int) -> date:
     return date(y, m, min(day, calendar.monthrange(y, m)[1]))
 
 
-def generate_compliance(db: Session, fy: str) -> int:
+def generate_compliance(db: Session, fy: str, include_past: bool = False) -> int:
+    """Create due-date tasks for the FY. Past due dates are skipped unless include_past (avoids a flood of
+    'overdue' items for periods before the ERP was in use)."""
     start, end = fy_bounds(fy)
     created = 0
     for rule in db.query(ComplianceRule).filter_by(is_active=True, applicable=True):
@@ -191,6 +193,8 @@ def generate_compliance(db: Session, fy: str) -> int:
         else:
             periods.append((f"FY{fy}", _due(end.year, end.month, rule.due_month_offset or 0, rule.due_day)))
         for period, due in periods:
+            if not include_past and due < date.today():
+                continue
             if not db.query(ComplianceTask).filter_by(rule_id=rule.id, period=period).first():
                 db.add(ComplianceTask(rule_id=rule.id, period=period, due_date=due, status="Pending"))
                 created += 1

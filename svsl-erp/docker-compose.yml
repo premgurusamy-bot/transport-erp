@@ -1,0 +1,26 @@
+# docker compose up -d   →   http://localhost:8000
+# Set the secrets in a .env file next to this file (see backend/.env.example).
+services:
+  db:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: svsl_erp
+      POSTGRES_USER: svsl
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD in .env}
+    volumes: [db:/var/lib/postgresql/data]
+    healthcheck: { test: ["CMD-SHELL", "pg_isready -U svsl"], interval: 5s, retries: 10 }
+  app:
+    build: .
+    restart: unless-stopped
+    depends_on: { db: { condition: service_healthy } }
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+psycopg://svsl:${DB_PASSWORD}@db:5432/svsl_erp
+      STORAGE_DIR: /data
+      BACKUP_DIR: /data/backups
+    ports: ["8000:8000"]
+    volumes: [files:/data]
+volumes:
+  db:
+  files:
