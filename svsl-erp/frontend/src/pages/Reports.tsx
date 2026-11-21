@@ -18,6 +18,7 @@ export default function Reports() {
   const [p, setP] = useState<any>({ start: fyStart(), end: today() });
   const [data, setData] = useState<any>(null);
   const [err, setErr] = useState<string | null>(null);
+  React.useEffect(() => { setData(null); setErr(null); }, [key]);
   const runIt = async () => { setErr(null); setData(null); try { setData(await api.get(`/api/reports/${key}${qs(p)}`)); } catch (e: any) { setErr(e.message); } };
   const groups: Record<string, any[]> = {};
   (list.data || []).forEach((r) => (groups[r.group] = groups[r.group] || []).push(r));

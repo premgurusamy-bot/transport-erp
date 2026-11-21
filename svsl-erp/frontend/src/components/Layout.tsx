@@ -25,13 +25,18 @@ export const NAV: { group: string; items: NavItem[] }[] = [
     { to: "/rates", label: "Rate contracts", perm: "rates:read" },
   ] },
   { group: "Billing", items: [
-    { to: "/invoices", label: "Invoices", perm: "invoices:read" },
-    { to: "/receipts", label: "Receipts", perm: "accounts:write" },
+    { to: "/invoices", label: "Invoices & notes", perm: "invoices:read" },
   ] },
   { group: "Accounts", items: [
+    { to: "/accounts", label: "Accounts home", perm: "accounts:read" },
+    { to: "/receipts", label: "Receipts", perm: "accounts:write" },
+    { to: "/vendor-payments", label: "Payments", perm: "accounts:write" },
     { to: "/vouchers", label: "Vouchers", perm: "accounts:read" },
     { to: "/ledgers", label: "Ledgers", perm: "accounts:read" },
     { to: "/bank", label: "Bank reconciliation", perm: "accounts:read" },
+    { to: "/reports?r=trial_balance", label: "Financial statements", perm: "accounts:read" },
+    { to: "/reports?r=customer_outstanding", label: "Outstanding & ageing", perm: "accounts:read" },
+    { to: "/reports?r=gst_summary", label: "GST reports", perm: "invoices:read" },
     { to: "/tally", label: "Tally export / import", perm: "accounts:read" },
   ] },
   { group: "Fleet", items: [
@@ -62,6 +67,7 @@ export const NAV: { group: string; items: NavItem[] }[] = [
     { to: "/company", label: "Company", perm: "company:read" },
     { to: "/settings", label: "Settings", perm: "settings:read" },
     { to: "/users", label: "Users", perm: "users:read" },
+    { to: "/import", label: "Import from Excel" },
     { to: "/audit", label: "Audit trail", perm: "audit:read" },
     { to: "/backup", label: "Backup", perm: "backup:read" },
   ] },
@@ -90,7 +96,7 @@ export default function Layout() {
       <nav>{NAV.map((g) => {
         const items = g.items.filter((i) => !i.perm || can(i.perm));
         if (!items.length) return null;
-        return <div key={g.group} className="nav-g"><div className="nav-gt">{t(g.group)}</div>{items.map((i) => <NavLink key={i.to} to={i.to} end={i.to === "/"}>{t(i.label)}</NavLink>)}</div>;
+        return <div key={g.group} className="nav-g"><div className="nav-gt">{t(g.group)}</div>{items.map((i) => <NavLink key={i.to} to={i.to} end={i.to === "/" || i.to.includes("?")} className={({ isActive }) => (isActive && (!i.to.includes("?") || location.search === i.to.slice(i.to.indexOf("?"))) ? "active" : "")}>{t(i.label)}</NavLink>)}</div>;
       })}</nav>
     </aside>
     <div className="main">

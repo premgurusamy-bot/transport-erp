@@ -1,6 +1,7 @@
 import React from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import Layout from "./components/Layout";
+import ImportPage from "./pages/Import";
 import { Toasts } from "./components/ui";
 import { auth } from "./lib/api";
 import { Accounts, Admin, Auth, Billing, Business, Dashboard, Fleet, LR, Masters, Portal, Reports, Trips } from "./pages";
@@ -45,6 +46,9 @@ export default function App() {
         <Route path="/ledgers" element={<Accounts.Ledgers />} />
         <Route path="/bank" element={<Accounts.BankReco />} />
         <Route path="/tally" element={<Accounts.Tally />} />
+        <Route path="/accounts" element={<Accounts.AccountsHome />} />
+        <Route path="/vendor-payments" element={<Accounts.VendorPayments />} />
+        <Route path="/import" element={<ImportPage />} />
         <Route path="/fuel" element={<Fleet.Fuel />} />
         <Route path="/maintenance" element={<Fleet.Maintenance />} />
         <Route path="/tyres" element={<Fleet.Tyres />} />

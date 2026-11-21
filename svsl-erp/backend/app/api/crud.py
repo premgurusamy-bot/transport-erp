@@ -259,11 +259,8 @@ def _commit(db: Session):
         raise AppError("Database rejected the change: " + msg[:200], 409)
 
 
-@router.post("/{name}")
-def create_item(name: str, data: dict, db: Session = Depends(get_db), user: CurrentUser = Depends(get_current_user)):
-    res = get_res(name, user, write=True)
-    if not res.creatable:
-        raise AppError("Records of this type are created from their own screen", 405)
+def create_record(db: Session, res: Resource, name: str, data: dict, user: CurrentUser):
+    """Validate, run hooks, insert and audit one record (no commit). Used by the API and by Excel import."""
     obj = res.model()
     for col in res.model.__table__.columns:
         if col.default is not None and getattr(col.default, "is_scalar", False):
@@ -273,27 +270,21 @@ def create_item(name: str, data: dict, db: Session = Depends(get_db), user: Curr
         obj.created_by = user.id
     if res.before_save:
         res.before_save(db, user, obj, data, True)
-    db.add(obj)
     try:
-        db.flush()
+        with db.begin_nested():
+            db.add(obj)
+            db.flush()
     except IntegrityError as exc:
-        db.rollback()
-        raise AppError("A record with the same unique value already exists (" + str(exc.orig).split("Key ")[-1][:120] + ")", 409)
+        raise AppError("A record with the same unique value already exists (" + str(exc.orig).split("Key ")[-1][:120].strip() + ")", 409)
     if res.after_create:
         res.after_create(db, user, obj)
     log(db, user, "create", name, obj.id, None, snapshot(obj), ip=user.ip)
-    _commit(db)
-    return serialize(res, obj, user)
+    return obj
 
 
-@router.put("/{name}/{item_id}")
-def update_item(name: str, item_id: int, data: dict, db: Session = Depends(get_db), user: CurrentUser = Depends(get_current_user)):
-    res = get_res(name, user, write=True)
+def update_record(db: Session, res: Resource, name: str, obj, data: dict, user: CurrentUser, reason: str | None = None):
     if not res.updatable:
         raise AppError("Records of this type cannot be edited; cancel and re-enter instead", 405)
-    obj = db.get(res.model, item_id)
-    if not obj:
-        raise AppError("Not found", 404)
     if res.deny_update:
         msg = res.deny_update(db, obj)
         if msg:
@@ -304,9 +295,34 @@ def update_item(name: str, item_id: int, data: dict, db: Session = Depends(get_d
         obj.updated_by = user.id
     if res.before_save:
         res.before_save(db, user, obj, data, False)
+    try:
+        with db.begin_nested():
+            db.flush()
+    except IntegrityError as exc:
+        raise AppError("A record with the same unique value already exists (" + str(exc.orig).split("Key ")[-1][:120].strip() + ")", 409)
     b, a = diff(before, snapshot(obj))
     if a:
-        log(db, user, "update", name, obj.id, b, a, data.get("_reason"), ip=user.ip)
+        log(db, user, "update", name, obj.id, b, a, reason or data.get("_reason"), ip=user.ip)
+    return obj
+
+
+@router.post("/{name}")
+def create_item(name: str, data: dict, db: Session = Depends(get_db), user: CurrentUser = Depends(get_current_user)):
+    res = get_res(name, user, write=True)
+    if not res.creatable:
+        raise AppError("Records of this type are created from their own screen", 405)
+    obj = create_record(db, res, name, data, user)
+    _commit(db)
+    return serialize(res, obj, user)
+
+
+@router.put("/{name}/{item_id}")
+def update_item(name: str, item_id: int, data: dict, db: Session = Depends(get_db), user: CurrentUser = Depends(get_current_user)):
+    res = get_res(name, user, write=True)
+    obj = db.get(res.model, item_id)
+    if not obj:
+        raise AppError("Not found", 404)
+    update_record(db, res, name, obj, data, user)
     _commit(db)
     return serialize(res, obj, user)
 

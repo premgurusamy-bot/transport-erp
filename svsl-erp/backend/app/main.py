@@ -13,7 +13,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from . import api  # noqa: F401
-from .api import admin, auth, crud, finance, fleet, operations, portal, resources  # noqa: F401
+from .api import admin, auth, crud, finance, fleet, imports, operations, portal, resources  # noqa: F401
 from .config import get_settings
 from .db import SessionLocal
 
@@ -88,7 +88,7 @@ def create_app() -> FastAPI:
     async def value_error(request: Request, exc: ValueError):
         return JSONResponse({"detail": str(exc)}, status_code=400)
 
-    for r in (auth.router, admin.router, crud.router, operations.router, finance.router, fleet.router, portal.router):
+    for r in (auth.router, admin.router, crud.router, operations.router, finance.router, fleet.router, portal.router, imports.router):
         app.include_router(r)
 
     @app.get("/api/health")

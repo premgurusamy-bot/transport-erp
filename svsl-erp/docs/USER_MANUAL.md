@@ -60,7 +60,11 @@ Outward more than available stock is refused. *Labels* prints QR labels for item
 ### 8. Purchase
 **Purchase**: purchase orders → *Receive* (GRN) → vendor bill (GST input, RCM, TDS) → *Pay vendor*.
 
-### 9. Accounts
+### 9. Accounts (separate section in the menu)
+**Accounts home** shows cash and bank balances, receivables, payables, this month's income/expenses/profit,
+GST, TDS and EPF/ESI/PT payable, and whether the books balance. Quick buttons: receipt from customer, payment to
+vendor, expense payment, journal, contra. Tiles open the trial balance, P&L, balance sheet, cash flow, day/cash/bank
+books, ledgers, outstanding & ageing, and GST registers.
 **Vouchers** (journal, payment, receipt, contra – debit must equal credit), **Ledgers** (balances, click for the
 ledger statement with PDF/Excel), **Bank reconciliation** (import statement, match entries), **Tally export / import**.
 
@@ -75,6 +79,23 @@ with expiry dates (alerts), new versions, download.
 
 ### 12. Reports
 **Reports**: choose a report, set dates/filters, *Run*, and export **Excel / PDF / CSV**.
+
+### 13. Import from Excel (your own format)
+**Admin → Import from Excel** (or the buttons on Accounts home):
+1. Choose what you are importing – customers, vehicles (with insurance/FC/permit/PUC dates), drivers, vendors,
+   routes, items, employees, ledgers, **opening balances** or **accounting vouchers** – and upload your .xlsx/.csv.
+2. Title rows above the headings are skipped automatically (change *Headings are in row* if needed).
+3. Each ERP field is matched to one of **your** column headings automatically; correct any match, or type a value
+   to use for every row (e.g. Ownership = Owned). Names of customers, branches, ledgers etc. are matched by name or code.
+4. Choose *Add new only*, *Add new and update existing* or *Update existing only* (matched by vehicle number,
+   code, …). Save the mapping with a name to reuse it next month.
+5. **Check all rows** – shows exactly which rows would be added/updated and what is wrong with the others
+   (download the problems as Excel). **Import** saves everything in one go; if any row has an error nothing is
+   saved unless you tick *Skip rows with errors*. Dates may be 15/03/2027, 15-03-2027, 15-Mar-2027 or Excel dates;
+   amounts may contain commas or ₹.
+
+Opening balances: one row per ledger with the amount and Dr/Cr (or separate Dr and Cr columns); a *group* column
+creates missing ledgers. Vouchers: rows with the same voucher number form one entry and must balance.
 
 ## Customer portal (customers)
 Sign in → *Shipments* (status, vehicle, expected/actual delivery, LR and POD download), *Book vehicle*, *Invoices*

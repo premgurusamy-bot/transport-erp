@@ -1,23 +1,25 @@
 import React, { useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { api, can, qs } from "../lib/api";
 import { dt, fyStart, inr, today } from "../lib/format";
 import ResourcePage from "../components/ResourcePage";
-import { Badge, Btn, Card, Field, Kpi, Modal, Page, Pager, ReasonModal, Search, Table, Tabs, download, run, toast, useLoad } from "../components/ui";
+import { Badge, Btn, Card, Field, Kpi, Modal, Page, Pager, ReasonModal, RefSelect, Search, Table, Tabs, download, run, toast, useLoad } from "../components/ui";
 
 export function Vouchers() {
   const [q, setQ] = useState("");
   const [type, setType] = useState("");
   const [offset, setOffset] = useState(0);
   const [view, setView] = useState<number | null>(null);
-  const [creating, setCreating] = useState(false);
+  const [sp, setSp] = useSearchParams();
+  const [creating, setCreating] = useState<string | false>(sp.get("new") || false);
   const list = useLoad<any>(`/api/vouchers${qs({ q, type, offset, limit: 50 })}`);
-  return <Page title="Vouchers" actions={can("accounts:write") && <Btn kind="primary" onClick={() => setCreating(true)}>+ Voucher</Btn>}>
+  return <Page title="Vouchers" actions={can("accounts:write") && <Btn kind="primary" onClick={() => setCreating("Journal")}>+ Voucher</Btn>}>
     <div className="toolbar"><Search value={q} onChange={setQ} placeholder="Voucher no / narration / reference" />
       <select value={type} onChange={(e) => setType(e.target.value)}><option value="">All types</option>{["Journal", "Payment", "Receipt", "Contra", "Purchase", "Sales", "Debit Note", "Credit Note"].map((t) => <option key={t}>{t}</option>)}</select></div>
     <Table cols={[{ key: "voucher_date", label: "Date", type: "date" }, { key: "voucher_no", label: "No" }, { key: "voucher_type", label: "Type" }, { key: "narration", label: "Narration" }, { key: "reference", label: "Ref" }, { key: "total", label: "Amount", type: "money" }, { key: "status", label: "Status", type: "badge" }]} rows={list.data?.items || []} onRow={(r) => setView(r.id)} />
     <Pager total={list.data?.total || 0} limit={50} offset={offset} onChange={setOffset} />
     {view && <VoucherView id={view} onClose={() => { setView(null); list.reload(); }} />}
-    {creating && <VoucherForm onClose={() => setCreating(false)} onDone={() => { setCreating(false); list.reload(); }} />}
+    {creating && <VoucherForm initialType={creating} onClose={() => { setCreating(false); setSp({}); }} onDone={() => { setCreating(false); setSp({}); list.reload(); }} />}
   </Page>;
 }
 
@@ -32,9 +34,9 @@ function VoucherView({ id, onClose }: { id: number; onClose: () => void }) {
   </Modal>;
 }
 
-function VoucherForm({ onClose, onDone }: { onClose: () => void; onDone: () => void }) {
+function VoucherForm({ onClose, onDone, initialType = "Journal" }: { onClose: () => void; onDone: () => void; initialType?: string }) {
   const ledgers = useLoad<any[]>("/api/ledgers/balances");
-  const [f, setF] = useState<any>({ voucher_type: "Journal", voucher_date: today(), narration: "", reference: "", lines: [{ ledger_id: "", debit: "", credit: "" }, { ledger_id: "", debit: "", credit: "" }] });
+  const [f, setF] = useState<any>({ voucher_type: ["Journal", "Payment", "Receipt", "Contra"].includes(initialType) ? initialType : "Journal", voucher_date: today(), narration: "", reference: "", lines: [{ ledger_id: "", debit: "", credit: "" }, { ledger_id: "", debit: "", credit: "" }] });
   const dr = f.lines.reduce((a: number, l: any) => a + Number(l.debit || 0), 0), cr = f.lines.reduce((a: number, l: any) => a + Number(l.credit || 0), 0);
   const line = (i: number, k: string, v: any) => setF({ ...f, lines: f.lines.map((x: any, j: number) => (j === i ? { ...x, [k]: v } : x)) });
   return <Modal wide title="New voucher" onClose={onClose} footer={<><span className={dr === cr && dr > 0 ? "good" : "bad"}>Dr {inr(dr)} · Cr {inr(cr)}</span><Btn kind="primary" disabled={dr !== cr || dr === 0} onClick={async () => { if (await run(() => api.post("/api/vouchers", f), "Voucher posted")) onDone(); }}>Post</Btn></>}>
@@ -139,5 +141,85 @@ export function Tally() {
         {res && <div><p>{res.valid} of {res.vouchers} vouchers valid{res.posted ? `, ${res.posted} posted` : ""}.</p>{res.errors.map((e: string) => <div key={e} className="error-box">{e}</div>)}</div>}
       </Card>}
     </div>
+  </Page>;
+}
+
+
+export function AccountsHome() {
+  const nav = useNavigate();
+  const { data: d } = useLoad<any>("/api/accounts/summary");
+  const tiles: [string, string, string][] = [
+    ["Trial balance", "trial_balance", "All ledger balances, debit = credit"], ["Profit & loss", "profit_loss", "Income, expenses, gross & net profit"], ["Balance sheet", "balance_sheet", "Assets, liabilities & capital"],
+    ["Cash flow", "cash_flow", "Operating / investing / financing"], ["Day book", "day_book", "Every voucher by date"], ["Cash book", "cash_book", "Cash in hand"], ["Bank book", "bank_book", "All bank accounts"],
+    ["General ledger", "ledger", "Any ledger statement"], ["Customer outstanding", "customer_outstanding", "Ageing 0-30/31-60/61-90/90+"], ["Supplier outstanding", "supplier_outstanding", "What you owe vendors"],
+    ["Sales register", "sales_register", "Invoices & notes with GST"], ["Purchase register", "purchase_register", "Vendor bills with GST"], ["GST summary", "gst_summary", "For GSTR-1 / GSTR-3B preparation"],
+  ];
+  return <Page title="Accounts" actions={can("accounts:write") && <div className="row gap wrap">
+    <Btn kind="primary" onClick={() => nav("/receipts")}>+ Receipt from customer</Btn>
+    <Btn onClick={() => nav("/vendor-payments")}>+ Payment to vendor</Btn>
+    <Btn onClick={() => nav("/vouchers?new=Payment")}>+ Expense payment</Btn>
+    <Btn onClick={() => nav("/vouchers?new=Journal")}>+ Journal</Btn>
+    <Btn onClick={() => nav("/vouchers?new=Contra")}>+ Contra (cash ↔ bank)</Btn></div>}>
+    {d && <>
+      <div className="kpis">
+        <Kpi label="Cash in hand" value={inr(d.cash_total)} onClick={() => nav("/reports?r=cash_book")} />
+        <Kpi label="Bank balance" value={inr(d.bank_total)} sub={`${d.banks.length} account(s)`} onClick={() => nav("/bank")} />
+        <Kpi label="Receivables" value={inr(d.receivables)} sub={`${d.overdue_invoices} invoice(s) overdue`} tone={d.overdue_invoices ? "warn" : undefined} onClick={() => nav("/reports?r=customer_outstanding")} />
+        <Kpi label="Payables" value={inr(d.payables)} onClick={() => nav("/reports?r=supplier_outstanding")} />
+        <Kpi label="Income this month" value={inr(d.month.income)} />
+        <Kpi label="Expenses this month" value={inr(d.month.expenses)} />
+        <Kpi label="Net profit this month" value={inr(d.month.net_profit)} tone={Number(d.month.net_profit) >= 0 ? "good" : "bad"} />
+        <Kpi label="GST payable (output − input)" value={inr(d.taxes.gst_net_payable)} sub={Number(d.taxes.rcm) ? `RCM ${inr(d.taxes.rcm)}` : ""} onClick={() => nav("/reports?r=gst_summary")} />
+        <Kpi label="TDS payable" value={inr(d.taxes.tds_payable)} />
+        <Kpi label="EPF / ESI / PT payable" value={inr(d.taxes.pf_esi_pt)} />
+        <Kpi label="Books" value={d.books_balanced ? "Balanced" : "Check opening balances"} tone={d.books_balanced ? "good" : "bad"} onClick={() => nav("/reports?r=trial_balance")} />
+      </div>
+      <div className="grid2">
+        <Card title="Financial statements & books"><div className="tiles">{tiles.map(([t, k, s]) => <a key={k} className="tile" onClick={() => nav(`/reports?r=${k}`)}><b>{t}</b><small>{s}</small></a>)}</div></Card>
+        <Card title="Recent vouchers" actions={<Btn small onClick={() => nav("/vouchers")}>All vouchers</Btn>}>
+          <Table dense cols={[{ key: "date", label: "Date", type: "date" }, { key: "no", label: "No" }, { key: "type", label: "Type" }, { key: "narration", label: "Narration" }, { key: "total", label: "Amount", type: "money" }, { key: "status", label: "", type: "badge" }]} rows={d.recent} onRow={() => nav("/vouchers")} />
+        </Card>
+      </div>
+      <Card title="Cash & bank"><Table dense cols={[{ key: "name", label: "Account" }, { key: "balance", label: "Balance", type: "money" }]} rows={[...d.cash, ...d.banks]} /></Card>
+      <Card title="Setting up / moving from another system">
+        <div className="row gap wrap">
+          <Btn onClick={() => nav("/import?target=opening_balances")}>Import opening balances from Excel</Btn>
+          <Btn onClick={() => nav("/import?target=ledgers")}>Import ledgers from Excel</Btn>
+          <Btn onClick={() => nav("/import?target=vouchers")}>Import vouchers from Excel</Btn>
+          <Btn onClick={() => nav("/tally")}>Tally export / import</Btn>
+          <Btn onClick={() => nav("/ledgers")}>Ledgers & groups</Btn>
+        </div>
+      </Card>
+    </>}
+  </Page>;
+}
+
+export function VendorPayments() {
+  const [f, setF] = useState<any>({ date: today(), mode: "Bank" });
+  const bills = useLoad<any[]>(f.vendor_id ? `/api/vendor-bills?vendor_id=${f.vendor_id}&status=Unpaid,Partly%20Paid` : null);
+  const banks = useLoad<any[]>("/api/ledgers/balances");
+  const [manual, setManual] = useState(false);
+  const [alloc, setAlloc] = useState<Record<number, string>>({});
+  const total = Object.values(alloc).reduce((a, v) => a + Number(v || 0), 0);
+  return <Page title="Payments to vendors">
+    <Card title="Vendor payment">
+      <div className="form-grid">
+        <Field label="Vendor"><RefSelect refName="vendors" value={f.vendor_id} onChange={(v) => { setF({ ...f, vendor_id: v }); setAlloc({}); }} /></Field>
+        <Field label="Date"><input type="date" value={f.date} onChange={(e) => setF({ ...f, date: e.target.value })} /></Field>
+        <Field label="Paid by"><select value={f.mode} onChange={(e) => setF({ ...f, mode: e.target.value })}><option>Bank</option><option>Cash</option></select></Field>
+        {f.mode === "Bank" && <Field label="Bank account"><select value={f.bank_ledger_id || ""} onChange={(e) => setF({ ...f, bank_ledger_id: Number(e.target.value) })}><option value="">—</option>{(banks.data || []).filter((l) => l.group === "Bank Accounts").map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}</select></Field>}
+        <Field label="Amount ₹"><input type="number" value={manual ? total || "" : f.amount || ""} disabled={manual} onChange={(e) => setF({ ...f, amount: e.target.value })} /></Field>
+        <Field label="Cheque / UTR"><input value={f.instrument_no || ""} onChange={(e) => setF({ ...f, instrument_no: e.target.value })} /></Field>
+        <Field label="Narration" wide><input value={f.narration || ""} onChange={(e) => setF({ ...f, narration: e.target.value })} /></Field>
+      </div>
+      <label className="row gap small"><input type="checkbox" checked={manual} onChange={(e) => setManual(e.target.checked)} /> Pay specific bills (otherwise oldest bills first)</label>
+      {f.vendor_id && <Table dense cols={[{ key: "entry_no", label: "Entry" }, { key: "bill_no", label: "Bill" }, { key: "bill_date", label: "Date", type: "date" }, { key: "due_date", label: "Due", type: "date" }, { key: "total", label: "Total", type: "money" }, { key: "balance", label: "Balance", type: "money" },
+        ...(manual ? [{ key: "pay", label: "Pay ₹", render: (b: any) => <input type="number" style={{ width: 120 }} value={alloc[b.id] || ""} onChange={(e) => setAlloc({ ...alloc, [b.id]: e.target.value })} /> }] : [])]} rows={bills.data || []} empty="No unpaid bills" />}
+      {can("accounts:write") && <Btn kind="primary" onClick={async () => {
+        const body: any = { ...f };
+        if (manual) { body.amount = total; body.allocations = Object.entries(alloc).filter(([, v]) => Number(v) > 0).map(([id, v]) => ({ vendor_bill_id: Number(id), amount: v })); }
+        if (await run(() => api.post("/api/vendor-payments", body), "Payment posted")) { setAlloc({}); setF({ date: today(), mode: f.mode, vendor_id: f.vendor_id, bank_ledger_id: f.bank_ledger_id }); bills.reload(); }
+      }}>Post payment</Btn>}
+    </Card>
   </Page>;
 }
