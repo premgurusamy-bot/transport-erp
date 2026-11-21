@@ -94,25 +94,30 @@ jobs:
       - name: Smoke test on Windows (database + migrations + server + PDF)
         shell: pwsh
         run: |
-          $res = "svsl-erp/desktop/res"
-          $data = "$env:RUNNER_TEMP/pgdata"
-          Set-Content -NoNewline "$env:RUNNER_TEMP/pw" "smoke-pass"
-          & "$res/pgsql/bin/initdb.exe" -D $data -U svsl --pwfile="$env:RUNNER_TEMP/pw" -E UTF8 --locale=C -A scram-sha-256
-          & "$res/pgsql/bin/pg_ctl.exe" start -w -D $data -l "$env:RUNNER_TEMP/pg.log" -o "-p 54329 -h 127.0.0.1"
+          $ErrorActionPreference = "Stop"
+          $PSNativeCommandUseErrorActionPreference = $true
+          $res = (Resolve-Path "svsl-erp/desktop/res").Path
+          $tmp = [System.IO.Path]::GetTempPath()
+          $data = Join-Path $tmp "svsl-pgdata"
+          $pw = Join-Path $tmp "svsl-pw.txt"
+          [System.IO.File]::WriteAllText($pw, "smoke-pass")
+          if (-not (Test-Path $pw)) { throw "password file not written" }
+          & "$res/pgsql/bin/initdb.exe" -D $data -U svsl "--pwfile=$pw" -E UTF8 --locale=C -A scram-sha-256
+          & "$res/pgsql/bin/pg_ctl.exe" start -w -D $data -l (Join-Path $tmp "pg.log") -o "-p 54329 -h 127.0.0.1"
           $env:PGPASSWORD = "smoke-pass"
           & "$res/pgsql/bin/createdb.exe" -h 127.0.0.1 -p 54329 -U svsl svsl_erp
           $env:DATABASE_URL = "postgresql+psycopg://svsl:smoke-pass@127.0.0.1:54329/svsl_erp"
           $env:SECRET_KEY = "smoke-secret-key-0123456789-0123456789-0123456789"
-          $env:STORAGE_DIR = "$env:RUNNER_TEMP/files"
-          $env:FRONTEND_DIST = (Resolve-Path "$res/web").Path
+          $env:STORAGE_DIR = Join-Path $tmp "svsl-files"
+          $env:FRONTEND_DIST = Join-Path $res "web"
           $env:INITIAL_ADMIN_PASSWORD = "Smoke@12345"
           $env:RUN_SCHEDULER = "false"
           $env:PORT = "8000"
-          & "$res/server/svsl-server.exe" migrate; if ($LASTEXITCODE) { exit 1 }
-          & "$res/server/svsl-server.exe" seed; if ($LASTEXITCODE) { exit 1 }
+          & "$res/server/svsl-server.exe" migrate
+          & "$res/server/svsl-server.exe" seed
           $p = Start-Process "$res/server/svsl-server.exe" -ArgumentList serve -PassThru -NoNewWindow
           $ok = $false
-          for ($i = 0; $i -lt 60; $i++) { try { if ((Invoke-WebRequest http://127.0.0.1:8000/api/health -UseBasicParsing).StatusCode -eq 200) { $ok = $true; break } } catch { Start-Sleep 2 } }
+          for ($i = 0; $i -lt 60; $i++) { try { if ((Invoke-WebRequest http://127.0.0.1:8000/api/health -UseBasicParsing -ErrorAction Stop).StatusCode -eq 200) { $ok = $true; break } } catch { Start-Sleep 2 } }
           if (-not $ok) { throw "server did not start" }
           $login = Invoke-RestMethod -Method Post http://127.0.0.1:8000/api/auth/login -ContentType application/json -Body '{"username":"admin","password":"Smoke@12345"}'
           $h = @{ Authorization = "Bearer $($login.token)" }
