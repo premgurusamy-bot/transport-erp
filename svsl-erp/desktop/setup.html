@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8" /><title>SVSL ERP – Setup</title>
+<html lang="en"><head><meta charset="utf-8" /><title>SVL ERP – Setup</title>
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'unsafe-inline'; script-src 'unsafe-inline'" />
 <style>
   body { margin: 0; font-family: "Segoe UI", Arial, sans-serif; background: #0f4c81; min-height: 100vh; display: flex; align-items: center; justify-content: center; }
@@ -13,7 +13,7 @@
   .msg { color: #b3261e; margin-top: 10px; min-height: 18px; }
 </style></head>
 <body><div class="card">
-  <h1>Sri Vengarai Suraj Logistics ERP</h1>
+  <h1>Sree Venkateswara Logistics ERP</h1>
   <p>How will this computer use the ERP?</p>
   <label class="opt"><input type="radio" name="mode" value="server" checked /> <b>This computer is the main ERP computer</b>
     <small>Recommended for the office computer. The database and all data are kept on this computer; other computers and phones connect to it. Keep it switched on during working hours.</small></label>
@@ -35,7 +35,7 @@
       var u = url.trim(); if (!/^https?:\/\//i.test(u)) u = "http://" + u; if (/^http:/i.test(u) && !/:\d+$/.test(u.replace(/^https?:\/\//i, "").split("/")[0])) u += ":8000";
       msg.style.color = "#555"; msg.textContent = "Checking " + u + " …";
       var t = await window.svsl.testUrl(u);
-      if (!t.ok) { msg.style.color = "#b3261e"; msg.textContent = t.message + ". Check the address and that SVSL ERP is open on that computer."; return; }
+      if (!t.ok) { msg.style.color = "#b3261e"; msg.textContent = t.message + ". Check the address and that SVL ERP is open on that computer."; return; }
     }
     var r = await window.svsl.save({ mode: mode, url: url });
     if (r && !r.ok) { msg.textContent = r.message; }

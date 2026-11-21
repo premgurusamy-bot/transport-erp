@@ -64,7 +64,7 @@ def verify_totp(secret: str, code: str) -> bool:
     return bool(secret) and pyotp.TOTP(secret).verify(str(code).strip(), valid_window=1)
 
 
-def totp_uri(secret: str, username: str, issuer: str = "SVSL ERP") -> str:
+def totp_uri(secret: str, username: str, issuer: str = "SVL ERP") -> str:
     return pyotp.TOTP(secret).provisioning_uri(name=username, issuer_name=issuer)
 
 

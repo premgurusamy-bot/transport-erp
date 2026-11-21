@@ -202,7 +202,7 @@ def lr_pdf(lr, company, customer, items, points, copies: list[str], fmt: str = "
         sig.setStyle(TableStyle([("GRID", (0, 0), (-1, -1), 0.4, colors.grey), ("VALIGN", (0, 0), (-1, -1), "BOTTOM")]))
         story.append(Spacer(1, 2 * mm))
         story.append(sig)
-        story.append(P(f"Verify this LR: scan the QR code. Printed from SVSL ERP.", st["s"]))
+        story.append(P(f"Verify this LR: scan the QR code. Printed from SVL ERP.", st["s"]))
     doc.build(story)
     return buf.getvalue()
 

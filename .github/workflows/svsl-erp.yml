@@ -1,4 +1,4 @@
-# Sri Vengarai Suraj Logistics ERP (svsl-erp/): backend tests on PostgreSQL + frontend type-check & build.
+# Sree Venkateswara Logistics ERP (svsl-erp/): backend tests on PostgreSQL + frontend type-check & build.
 name: svsl-erp
 
 permissions:
@@ -134,7 +134,7 @@ jobs:
           npm run dist:win
       - uses: actions/upload-artifact@v4
         with:
-          name: SVSL-ERP-Windows-Installer
+          name: SVL-ERP-Windows-Installer
           path: svsl-erp/desktop/release/*.exe
 
   android-apk:
@@ -157,11 +157,11 @@ jobs:
           cd android
           chmod +x gradlew
           ./gradlew assembleDebug --no-daemon
-          cp app/build/outputs/apk/debug/app-debug.apk ../SVSL-ERP.apk
+          cp app/build/outputs/apk/debug/app-debug.apk ../SVL-ERP.apk
       - uses: actions/upload-artifact@v4
         with:
-          name: SVSL-ERP-Android-APK
-          path: svsl-erp/mobile/SVSL-ERP.apk
+          name: SVL-ERP-Android-APK
+          path: svsl-erp/mobile/SVL-ERP.apk
 
   release:
     needs: [windows-installer, android-apk]
@@ -176,11 +176,11 @@ jobs:
         with:
           tag_name: svsl-erp-build-${{ github.run_number }}
           target_commitish: ${{ github.sha }}
-          name: SVSL ERP build ${{ github.run_number }}
+          name: SVL ERP build ${{ github.run_number }}
           prerelease: true
           body: |
-            **Windows:** download `SVSL-ERP-Setup-1.0.0.exe` and run it on the main office computer (it includes the database and server).
-            **Android:** download `SVSL-ERP.apk` on the phone and install it (allow "Install unknown apps" when asked), then enter the address shown on the office computer under Help → Phone connection.
+            **Windows:** download `SVL-ERP-Setup-1.0.0.exe` and run it on the main office computer (it includes the database and server).
+            **Android:** download `SVL-ERP.apk` on the phone and install it (allow "Install unknown apps" when asked), then enter the address shown on the office computer under Help → Phone connection.
             Built from commit ${{ github.sha }}.
           files: |
             out/*.exe

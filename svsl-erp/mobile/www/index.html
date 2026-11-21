@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<title>SVSL ERP</title>
+<title>SVL ERP</title>
 <style>
   body { margin: 0; font-family: Roboto, "Segoe UI", Arial, sans-serif; background: #0f4c81; color: #18212b; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 16px; box-sizing: border-box; }
   .card { background: #fff; border-radius: 14px; padding: 22px; width: 100%; max-width: 400px; box-shadow: 0 20px 50px rgba(0,0,0,.3); }
@@ -19,8 +19,8 @@
 </head>
 <body>
 <div class="card">
-  <h1>Sri Vengarai Suraj Logistics</h1>
-  <p>Enter the ERP server address. On the office computer it is shown in the SVSL ERP window under <b>Help → Phone connection</b> (for example <b>192.168.1.20:8000</b>). The phone must be on the office Wi-Fi – or enter your internet address such as <b>https://erp.yourcompany.in</b>.</p>
+  <h1>Sree Venkateswara Logistics</h1>
+  <p>Enter the ERP server address. On the office computer it is shown in the SVL ERP window under <b>Help → Phone connection</b> (for example <b>192.168.1.20:8000</b>). The phone must be on the office Wi-Fi – or enter your internet address such as <b>https://erp.yourcompany.in</b>.</p>
   <label>Server address<input id="addr" inputmode="url" autocapitalize="off" autocomplete="off" placeholder="192.168.1.20:8000" /></label>
   <button id="go">Connect</button>
   <div id="msg" class="msg"></div>
@@ -42,7 +42,7 @@
     if (!url) { show(false, "Type the server address."); return; }
     show(true, "Connecting to " + url + " …");
     var done = false;
-    var timer = setTimeout(function () { if (!done) { done = true; show(false, "Cannot reach " + url + ". Is the phone on the office Wi-Fi and is SVSL ERP open on the office computer?"); } }, 9000);
+    var timer = setTimeout(function () { if (!done) { done = true; show(false, "Cannot reach " + url + ". Is the phone on the office Wi-Fi and is SVL ERP open on the office computer?"); } }, 9000);
     fetch(url + "/api/health", { mode: "no-cors", cache: "no-store" }).then(function () {
       if (done) return;
       done = true; clearTimeout(timer);

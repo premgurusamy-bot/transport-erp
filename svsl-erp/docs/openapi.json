@@ -1,7 +1,7 @@
 {
  "openapi": "3.1.0",
  "info": {
-  "title": "Sri Vengarai Suraj Logistics ERP",
+  "title": "Sree Venkateswara Logistics ERP",
   "description": "Transport & Logistics ERP \u2013 REST API. Authenticate with POST /api/auth/login and send `Authorization: Bearer <token>`.",
   "version": "1.0.0"
  },
@@ -79,6 +79,48 @@
       "content": {
        "application/json": {
         "schema": {}
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/auth/download-link": {
+   "post": {
+    "tags": [
+     "auth"
+    ],
+    "summary": "Download Link",
+    "description": "Short-lived (2 minute) link for one GET path, for app download managers that cannot send headers.",
+    "operationId": "download_link_api_auth_download_link_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "additionalProperties": true,
+        "type": "object",
+        "title": "Data"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
        }
       }
      }

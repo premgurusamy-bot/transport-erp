@@ -86,7 +86,7 @@ export default function Layout() {
   const logout = async () => { await api.post("/api/auth/logout").catch(() => {}); auth.clear(); nav("/login"); };
   return <div className={`shell ${open ? "nav-open" : ""}`}>
     <aside className="side">
-      <div className="brand"><img src="/api/company/logo" alt="" onError={(e) => ((e.target as HTMLImageElement).style.display = "none")} /><div><b>SVSL ERP</b><small>Sri Vengarai Suraj Logistics</small></div></div>
+      <div className="brand"><img src="/api/company/logo" alt="" onError={(e) => ((e.target as HTMLImageElement).style.display = "none")} /><div><b>SVL ERP</b><small>Sree Venkateswara Logistics</small></div></div>
       <nav>{NAV.map((g) => {
         const items = g.items.filter((i) => !i.perm || can(i.perm));
         if (!items.length) return null;

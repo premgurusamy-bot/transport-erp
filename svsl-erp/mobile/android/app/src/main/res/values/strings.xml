@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">SVSL ERP</string>
-    <string name="title_activity_main">SVSL ERP</string>
+    <string name="app_name">SVL ERP</string>
+    <string name="title_activity_main">SVL ERP</string>
     <string name="package_name">in.svsl.erp</string>
     <string name="custom_url_scheme">in.svsl.erp</string>
 </resources>

@@ -13,7 +13,7 @@ import android.widget.Toast;
 import com.getcapacitor.BridgeActivity;
 
 /**
- * SVSL ERP Android app: a thin shell around the ERP web app running on the office server.
+ * SVL ERP Android app: a thin shell around the ERP web app running on the office server.
  * PDFs and Excel files (LR, invoices, reports, POD) are handed to the phone's download manager,
  * which saves them to Downloads and shows a notification to open them.
  */

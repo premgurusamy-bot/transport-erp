@@ -33,7 +33,7 @@
 ## Numbering
 
 *Settings → Numbering*. Every document type has a series per financial year (`{prefix}{fy}/{no}` → e.g.
-`SVSL/LR/2026-27/00001`). The next number can be increased, never decreased; the database also enforces
+`SVL/LR/2026-27/00001`). The next number can be increased, never decreased; the database also enforces
 uniqueness. A new FY starts at 1 automatically using the previous year's prefix and format.
 
 ## GST configuration

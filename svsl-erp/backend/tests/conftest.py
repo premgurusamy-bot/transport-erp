@@ -107,7 +107,7 @@ def uniq(prefix="X"):
 
 @pytest.fixture(scope="session")
 def company(api):
-    return api.put("/api/company", {"legal_name": "Sri Vengarai Suraj Logistics", "trade_name": "Sri Vengarai Suraj Logistics", "state": "Tamil Nadu", "state_code": "33", "city": "Coimbatore"})
+    return api.put("/api/company", {"legal_name": "Sree Venkateswara Logistics", "trade_name": "Sree Venkateswara Logistics", "state": "Tamil Nadu", "state_code": "33", "city": "Coimbatore"})
 
 
 @pytest.fixture(scope="session")

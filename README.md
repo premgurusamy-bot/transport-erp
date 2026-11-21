@@ -1,4 +1,4 @@
-> **This repository also contains `svsl-erp/` – the Sri Vengarai Suraj Logistics Transport & Logistics ERP**
+> **This repository also contains `svsl-erp/` – the Sree Venkateswara Logistics Transport & Logistics ERP**
 > (FastAPI + PostgreSQL + React). See [svsl-erp/README.md](svsl-erp/README.md). The G Road Lines application below is
 > unchanged and independent.
 

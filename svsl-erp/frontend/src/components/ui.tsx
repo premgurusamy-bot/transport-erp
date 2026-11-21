@@ -66,7 +66,7 @@ export function Card({ title, actions, children, className }: { title?: React.Re
 }
 
 export function Page({ title, actions, children }: { title: string; actions?: React.ReactNode; children: React.ReactNode }) {
-  useEffect(() => { document.title = `${title} – SVSL ERP`; }, [title]);
+  useEffect(() => { document.title = `${title} – SVL ERP`; }, [title]);
   return <div className="page"><div className="page-h"><h1>{t(title)}</h1><div className="row gap wrap">{actions}</div></div>{children}</div>;
 }
 

@@ -32,7 +32,7 @@ export function Login() {
   return <div className="login-bg">
     <form className="login" onSubmit={submit}>
       <img src="/api/company/logo" alt="" className="login-logo" onError={(e) => ((e.target as HTMLImageElement).style.display = "none")} />
-      <h1>Sri Vengarai Suraj Logistics</h1>
+      <h1>Sree Venkateswara Logistics</h1>
       <p className="muted">Transport & Logistics ERP · Coimbatore</p>
       <Field label={t("Username")}><input autoFocus autoComplete="username" value={f.username} onChange={(e) => setF({ ...f, username: e.target.value })} /></Field>
       <Field label={t("Password")}><input type="password" autoComplete="current-password" value={f.password} onChange={(e) => setF({ ...f, password: e.target.value })} /></Field>

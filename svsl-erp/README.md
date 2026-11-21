@@ -1,7 +1,7 @@
-# Sri Vengarai Suraj Logistics – Transport & Logistics ERP
+# Sree Venkateswara Logistics – Transport & Logistics ERP
 
 A complete ERP for goods transportation, fleet operations, industrial logistics and godown management,
-built for Sri Vengarai Suraj Logistics, Coimbatore (Tamil Nadu). INR, Indian number/date formats,
+built for Sree Venkateswara Logistics, Coimbatore (Tamil Nadu). INR, Indian number/date formats,
 GST, English + Tamil interface.
 
 | Part | Technology |
@@ -25,8 +25,8 @@ svsl-erp/
 
 ## Install as apps
 
-* **Windows:** `SVSL-ERP-Setup-1.0.0.exe` – one installer with the database and server included; the office PC becomes the ERP server.
-* **Android:** `SVSL-ERP.apk` – connects phones to that server (drivers, customers, staff).
+* **Windows:** `SVL-ERP-Setup-1.0.0.exe` – one installer with the database and server included; the office PC becomes the ERP server.
+* **Android:** `SVL-ERP.apk` – connects phones to that server (drivers, customers, staff).
 
 Both are on the repository's **Releases** page, built by GitHub Actions. Step-by-step: [docs/INSTALL-APPS.md](docs/INSTALL-APPS.md).
 

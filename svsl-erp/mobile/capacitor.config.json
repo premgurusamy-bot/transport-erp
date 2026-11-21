@@ -1,6 +1,6 @@
 {
   "appId": "in.svsl.erp",
-  "appName": "SVSL ERP",
+  "appName": "SVL ERP",
   "webDir": "www",
   "appendUserAgent": "SVSLApp-Android",
   "server": {
