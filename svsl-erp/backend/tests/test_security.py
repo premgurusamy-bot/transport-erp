@@ -155,3 +155,16 @@ def test_audit_trail_on_master_changes(api):
     a = api.get(f"/api/audit?entity=customers&entity_id={c['id']}")["items"]
     upd = next(x for x in a if x["action"] == "update")
     assert upd["after"]["credit_limit"] == "250000.00" and upd["reason"] == "Reviewed"
+
+
+def test_download_link_is_path_bound_and_not_a_session(client, api):
+    cust = make_customer(api)
+    make_contract(api, cust["id"])
+    lr = api.post("/api/lr", lr_payload(cust["id"]))["lr"]
+    link = api.post("/api/auth/download-link", {"path": f"/api/lr/{lr['id']}/pdf?fmt=thermal"})["url"]
+    r = client.get(link)
+    assert r.status_code == 200 and r.content[:4] == b"%PDF"
+    tok = link.split("dlt=")[1]
+    assert client.get(f"/api/r/customers?dlt={tok}").status_code == 401  # other path
+    assert client.get("/api/auth/me", headers={"Authorization": f"Bearer {tok}"}).status_code == 401  # not a session
+    assert api.c.post("/api/auth/download-link", headers=api.h, json={"path": "https://evil/x"}).status_code == 400

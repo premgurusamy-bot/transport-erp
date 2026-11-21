@@ -1,0 +1,40 @@
+{
+  "name": "svsl-erp-desktop",
+  "productName": "SVSL ERP",
+  "version": "1.0.0",
+  "description": "Sri Vengarai Suraj Logistics ERP – Windows desktop app",
+  "main": "main.cjs",
+  "private": true,
+  "license": "UNLICENSED",
+  "author": "Sri Vengarai Suraj Logistics",
+  "scripts": {
+    "start": "electron .",
+    "dist:win": "electron-builder --win nsis --x64"
+  },
+  "devDependencies": {
+    "electron": "33.4.11",
+    "electron-builder": "25.1.8"
+  },
+  "build": {
+    "appId": "in.svsl.erp",
+    "productName": "SVSL ERP",
+    "copyright": "Sri Vengarai Suraj Logistics",
+    "directories": { "output": "release" },
+    "files": ["main.cjs", "preload.cjs", "setup.html", "starting.html", "icon.png", "package.json"],
+    "extraResources": [
+      { "from": "res/server", "to": "server" },
+      { "from": "res/pgsql", "to": "pgsql" },
+      { "from": "res/web", "to": "web" }
+    ],
+    "win": { "target": "nsis", "icon": "icon.png", "artifactName": "SVSL-ERP-Setup-${version}.exe" },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": true,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "shortcutName": "SVSL ERP",
+      "deleteAppDataOnUninstall": false,
+      "include": "installer.nsh"
+    }
+  }
+}

@@ -58,6 +58,12 @@ export function qs(params: Record<string, any>): string {
 
 /** Fetch a protected file and open it in a new tab (PDF) or save it (xlsx/csv/zip). */
 export async function openFile(url: string, filename?: string) {
+  if (/SVSLApp-Android/.test(navigator.userAgent)) {
+    // Android WebView cannot save blobs: get a 2-minute link and let the phone's download manager fetch it.
+    const r = await request("POST", "/api/auth/download-link", { path: url });
+    location.href = r.url;
+    return;
+  }
   const res = await fetch(url, { headers: auth.token ? { Authorization: `Bearer ${auth.token}` } : {} });
   if (!res.ok) {
     let msg = `Download failed (${res.status})`;

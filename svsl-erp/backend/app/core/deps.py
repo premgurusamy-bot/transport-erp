@@ -47,13 +47,20 @@ def _client_ip(request: Request) -> str | None:
 def get_current_user(request: Request, db: Session = Depends(get_db)) -> CurrentUser:
     auth = request.headers.get("authorization", "")
     token = auth[7:] if auth.lower().startswith("bearer ") else None
-    if not token:
+    dl = request.query_params.get("dlt") if not token and request.method == "GET" else None
+    if not token and not dl:
         raise AppError("Not signed in", 401)
     try:
-        payload = jwt.decode(token, get_settings().secret_key, algorithms=["HS256"])
+        payload = jwt.decode(token or dl, get_settings().secret_key, algorithms=["HS256"])
     except jwt.ExpiredSignatureError:
         raise AppError("Session expired – please sign in again", 401)
     except jwt.PyJWTError:
+        raise AppError("Invalid session", 401)
+    # A download link token is valid only for the exact path it was issued for (used by the Android app,
+    # whose download manager cannot send the Authorization header). Session tokens are never accepted here.
+    if dl and (payload.get("typ") != "dl" or payload.get("path") != request.url.path):
+        raise AppError("Invalid download link", 401)
+    if token and payload.get("typ") == "dl":
         raise AppError("Invalid session", 401)
     sess = db.get(UserSession, payload.get("sid"))
     now = datetime.now(timezone.utc)

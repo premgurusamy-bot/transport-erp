@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
+import { openExternal } from "../lib/native";
 import { api, can, qs } from "../lib/api";
 import { dt, inr, monthStart, today } from "../lib/format";
 import { Badge, Btn, Card, Field, Modal, Page, Pager, ReasonModal, RefSelect, Search, Table, download, run, toast, useLoad, useLookup } from "../components/ui";
@@ -69,7 +70,7 @@ function InvoiceDetail({ id, onClose }: { id: number; onClose: () => void }) {
   return <Modal wide title={`${DOC_TYPES[inv.doc_type]} ${inv.invoice_no}`} onClose={onClose} footer={<Btn onClick={onClose}>Close</Btn>}>
     <div className="row gap wrap"><Badge v={inv.status} /><Badge v={inv.einvoice_status === "Not Applicable" ? null : inv.einvoice_status} /><div className="grow" />
       <Btn small onClick={() => download(`/api/invoices/${id}/pdf`)}>PDF</Btn>
-      <Btn small onClick={async () => { const r: any = await run(() => api.post(`/api/invoices/${id}/share`, { channel: "whatsapp" })); if (r?.url) window.open(r.url, "_blank"); }}>WhatsApp</Btn>
+      <Btn small onClick={async () => { const r: any = await run(() => api.post(`/api/invoices/${id}/share`, { channel: "whatsapp" })); if (r?.url) openExternal(r.url); }}>WhatsApp</Btn>
       <Btn small onClick={async () => { const r: any = await run(() => api.post(`/api/invoices/${id}/share`, { channel: "email" })); if (r) r.status === "sent" ? toast.ok("Emailed") : toast.err(r.error || r.status); }}>Email</Btn>
       {["tax_invoice", "debit_note", "credit_note"].includes(inv.doc_type) && inv.status !== "Cancelled" && <>
         <Btn small onClick={() => download(`/api/invoices/${id}/einvoice-json`, `EINV_${inv.invoice_no.replace(/\//g, "-")}.json`)}>E-invoice JSON</Btn>

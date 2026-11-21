@@ -1,0 +1,14 @@
+{
+  "appId": "in.svsl.erp",
+  "appName": "SVSL ERP",
+  "webDir": "www",
+  "appendUserAgent": "SVSLApp-Android",
+  "server": {
+    "androidScheme": "http",
+    "cleartext": true,
+    "allowNavigation": ["*"]
+  },
+  "android": {
+    "allowMixedContent": true
+  }
+}

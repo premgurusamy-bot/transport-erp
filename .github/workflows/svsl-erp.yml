@@ -1,6 +1,9 @@
 # Sri Vengarai Suraj Logistics ERP (svsl-erp/): backend tests on PostgreSQL + frontend type-check & build.
 name: svsl-erp
 
+permissions:
+  contents: write
+
 on:
   push:
     paths: ["svsl-erp/**", ".github/workflows/svsl-erp.yml"]
@@ -51,3 +54,134 @@ jobs:
           node-version: 22
       - run: npm ci
       - run: npm run build
+
+  windows-installer:
+    needs: [backend, frontend]
+    runs-on: windows-latest
+    env:
+      PG_ZIP: https://get.enterprisedb.com/postgresql/postgresql-16.4-1-windows-x64-binaries.zip
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Build web app
+        working-directory: svsl-erp/frontend
+        run: |
+          npm ci
+          npm run build
+      - name: Build bundled ERP server (PyInstaller)
+        working-directory: svsl-erp/backend
+        run: |
+          pip install -r requirements.txt pyinstaller
+          pyinstaller --noconfirm svsl-server.spec
+      - name: Download PostgreSQL 16 (portable binaries)
+        shell: pwsh
+        run: |
+          Invoke-WebRequest $env:PG_ZIP -OutFile pg.zip
+          Expand-Archive pg.zip -DestinationPath pgtmp
+          $pg = "pgtmp/pgsql"
+          Remove-Item -Recurse -Force "$pg/pgAdmin 4", "$pg/doc", "$pg/include", "$pg/StackBuilder", "$pg/symbols" -ErrorAction SilentlyContinue
+          # app-local Visual C++ runtime so the database also starts on PCs without the redistributable
+          foreach ($d in "vcruntime140.dll", "vcruntime140_1.dll", "msvcp140.dll") { if (-not (Test-Path "$pg/bin/$d")) { Copy-Item "C:/Windows/System32/$d" "$pg/bin/" } }
+          New-Item -ItemType Directory -Force svsl-erp/desktop/res | Out-Null
+          Move-Item $pg svsl-erp/desktop/res/pgsql
+          Copy-Item -Recurse svsl-erp/backend/dist/svsl-server svsl-erp/desktop/res/server
+          Copy-Item -Recurse svsl-erp/frontend/dist svsl-erp/desktop/res/web
+      - name: Smoke test on Windows (database + migrations + server + PDF)
+        shell: pwsh
+        run: |
+          $res = "svsl-erp/desktop/res"
+          $data = "$env:RUNNER_TEMP/pgdata"
+          Set-Content -NoNewline "$env:RUNNER_TEMP/pw" "smoke-pass"
+          & "$res/pgsql/bin/initdb.exe" -D $data -U svsl --pwfile="$env:RUNNER_TEMP/pw" -E UTF8 --locale=C -A scram-sha-256
+          & "$res/pgsql/bin/pg_ctl.exe" start -w -D $data -l "$env:RUNNER_TEMP/pg.log" -o "-p 54329 -h 127.0.0.1"
+          $env:PGPASSWORD = "smoke-pass"
+          & "$res/pgsql/bin/createdb.exe" -h 127.0.0.1 -p 54329 -U svsl svsl_erp
+          $env:DATABASE_URL = "postgresql+psycopg://svsl:smoke-pass@127.0.0.1:54329/svsl_erp"
+          $env:SECRET_KEY = "smoke-secret-key-0123456789-0123456789-0123456789"
+          $env:STORAGE_DIR = "$env:RUNNER_TEMP/files"
+          $env:FRONTEND_DIST = (Resolve-Path "$res/web").Path
+          $env:INITIAL_ADMIN_PASSWORD = "Smoke@12345"
+          $env:RUN_SCHEDULER = "false"
+          $env:PORT = "8000"
+          & "$res/server/svsl-server.exe" migrate; if ($LASTEXITCODE) { exit 1 }
+          & "$res/server/svsl-server.exe" seed; if ($LASTEXITCODE) { exit 1 }
+          $p = Start-Process "$res/server/svsl-server.exe" -ArgumentList serve -PassThru -NoNewWindow
+          $ok = $false
+          for ($i = 0; $i -lt 60; $i++) { try { if ((Invoke-WebRequest http://127.0.0.1:8000/api/health -UseBasicParsing).StatusCode -eq 200) { $ok = $true; break } } catch { Start-Sleep 2 } }
+          if (-not $ok) { throw "server did not start" }
+          $login = Invoke-RestMethod -Method Post http://127.0.0.1:8000/api/auth/login -ContentType application/json -Body '{"username":"admin","password":"Smoke@12345"}'
+          $h = @{ Authorization = "Bearer $($login.token)" }
+          $pdf = Invoke-WebRequest "http://127.0.0.1:8000/api/reports/trial_balance?format=pdf" -Headers $h -UseBasicParsing
+          if ([System.Text.Encoding]::ASCII.GetString($pdf.Content[0..3]) -ne "%PDF") { throw "PDF failed" }
+          $b = Invoke-RestMethod -Method Post http://127.0.0.1:8000/api/backups -Headers $h -ContentType application/json -Body '{}'
+          if ($b.status -ne "Verified") { throw "backup failed" }
+          $web = Invoke-WebRequest http://127.0.0.1:8000/ -UseBasicParsing
+          if ($web.Content -notmatch "<div id=`"root`">") { throw "web app not served" }
+          Stop-Process -Id $p.Id -Force
+          & "$res/pgsql/bin/pg_ctl.exe" stop -D $data -m fast
+          Write-Host "Windows smoke test passed"
+      - name: Build installer
+        working-directory: svsl-erp/desktop
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+        run: |
+          npm ci
+          npm run dist:win
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SVSL-ERP-Windows-Installer
+          path: svsl-erp/desktop/release/*.exe
+
+  android-apk:
+    needs: [frontend]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - name: Build APK
+        working-directory: svsl-erp/mobile
+        run: |
+          npm ci
+          npx cap sync android
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon
+          cp app/build/outputs/apk/debug/app-debug.apk ../SVSL-ERP.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SVSL-ERP-Android-APK
+          path: svsl-erp/mobile/SVSL-ERP.apk
+
+  release:
+    needs: [windows-installer, android-apk]
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: out
+          merge-multiple: true
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: svsl-erp-build-${{ github.run_number }}
+          target_commitish: ${{ github.sha }}
+          name: SVSL ERP build ${{ github.run_number }}
+          prerelease: true
+          body: |
+            **Windows:** download `SVSL-ERP-Setup-1.0.0.exe` and run it on the main office computer (it includes the database and server).
+            **Android:** download `SVSL-ERP.apk` on the phone and install it (allow "Install unknown apps" when asked), then enter the address shown on the office computer under Help → Phone connection.
+            Built from commit ${{ github.sha }}.
+          files: |
+            out/*.exe
+            out/*.apk

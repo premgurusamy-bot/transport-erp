@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api, auth } from "../lib/api";
+import { changeServer, isAndroidApp } from "../lib/native";
 import { t } from "../lib/i18n";
 import { dt } from "../lib/format";
 import { Btn, Card, Field, Page, Table, run, toast, useLoad } from "../components/ui";
@@ -38,6 +39,7 @@ export function Login() {
       {needOtp && <Field label="Authenticator code"><input inputMode="numeric" maxLength={6} value={f.otp} onChange={(e) => setF({ ...f, otp: e.target.value })} autoFocus /></Field>}
       {err && <div className="error-box">{err}</div>}
       <button className="btn primary block" type="submit">{t("Sign in")}</button>
+      {isAndroidApp && <button type="button" className="btn ghost block" onClick={changeServer}>Change server address</button>}
     </form>
   </div>;
 }

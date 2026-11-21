@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { openExternal } from "../lib/native";
 import { api, can, qs } from "../lib/api";
 import { dt, inr, num, today } from "../lib/format";
 import { Badge, Btn, Card, Field, Modal, Page, Pager, ReasonModal, RefSelect, Search, Table, Tabs, download, run, toast, useLoad } from "../components/ui";
@@ -103,7 +104,7 @@ export function LRDetail({ id, onClose }: { id: number; onClose: () => void }) {
   if (!lr) return null;
   const share = async (channel: string) => {
     const r: any = await run(() => api.post(`/api/lr/${id}/share`, { channel, to: form.to }));
-    if (r?.url) window.open(r.url, "_blank");
+    if (r?.url) openExternal(r.url);
     else if (r) r.status === "sent" ? toast.ok("Sent") : toast.err(r.error || r.status);
   };
   const uploadPod = async (file: File) => {

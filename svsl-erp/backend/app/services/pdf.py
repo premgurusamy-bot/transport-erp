@@ -27,13 +27,15 @@ def _fonts() -> None:
     global _FONT, _FONT_B, _RUPEE
     if _FONT != "Helvetica":
         return
-    candidates = [os.environ.get("PDF_FONT_DIR", ""), "/usr/share/fonts/truetype/dejavu", "C:/Windows/Fonts", str(Path(__file__).parent / "fonts")]
-    for d in candidates:
-        reg, bold = Path(d) / "DejaVuSans.ttf", Path(d) / "DejaVuSans-Bold.ttf"
+    win = os.path.join(os.environ.get("WINDIR", "C:/Windows"), "Fonts")
+    candidates = [(d, "DejaVuSans.ttf", "DejaVuSans-Bold.ttf") for d in (os.environ.get("PDF_FONT_DIR", ""), "/usr/share/fonts/truetype/dejavu", win, str(Path(__file__).parent / "fonts"))]
+    candidates.append((win, "segoeui.ttf", "segoeuib.ttf"))  # Windows 8+: has the ₹ glyph
+    for d, r, b in candidates:
+        reg, bold = Path(d) / r, Path(d) / b
         if d and reg.exists() and bold.exists():
-            pdfmetrics.registerFont(TTFont("DejaVu", str(reg)))
-            pdfmetrics.registerFont(TTFont("DejaVu-Bold", str(bold)))
-            _FONT, _FONT_B, _RUPEE = "DejaVu", "DejaVu-Bold", "₹"
+            pdfmetrics.registerFont(TTFont("ErpSans", str(reg)))
+            pdfmetrics.registerFont(TTFont("ErpSans-Bold", str(bold)))
+            _FONT, _FONT_B, _RUPEE = "ErpSans", "ErpSans-Bold", "₹"
             return
 
 

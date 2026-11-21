@@ -87,6 +87,21 @@ def me(db: Session = Depends(get_db), user: CurrentUser = Depends(get_current_us
     return profile(u, db.get(Role, u.role_id))
 
 
+@router.post("/download-link")
+def download_link(data: dict, user: CurrentUser = Depends(get_current_user)):
+    """Short-lived (2 minute) link for one GET path, for app download managers that cannot send headers."""
+    import jwt as pyjwt
+
+    path = str(data.get("path") or "")
+    path_only = path.split("?", 1)[0]
+    if not path_only.startswith("/api/") or ".." in path_only:
+        raise AppError("Invalid path")
+    now = datetime.now(timezone.utc)
+    tok = pyjwt.encode({"sub": str(user.id), "sid": user.session_id, "typ": "dl", "path": path_only, "iat": int(now.timestamp()), "exp": int((now + timedelta(minutes=2)).timestamp())}, get_settings().secret_key, algorithm="HS256")
+    sep = "&" if "?" in path else "?"
+    return {"url": f"{path}{sep}dlt={tok}"}
+
+
 @router.get("/permissions")
 def permissions(user: CurrentUser = Depends(get_current_user)):
     return all_permissions()

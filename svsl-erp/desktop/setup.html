@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8" /><title>SVSL ERP – Setup</title>
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'unsafe-inline'; script-src 'unsafe-inline'" />
+<style>
+  body { margin: 0; font-family: "Segoe UI", Arial, sans-serif; background: #0f4c81; min-height: 100vh; display: flex; align-items: center; justify-content: center; }
+  .card { background: #fff; border-radius: 14px; padding: 28px; width: 560px; box-shadow: 0 20px 50px rgba(0,0,0,.3); }
+  h1 { margin: 0; color: #0f4c81; font-size: 22px; } p { color: #555; line-height: 1.45; }
+  .opt { border: 2px solid #dfe4ea; border-radius: 10px; padding: 14px; margin: 10px 0; cursor: pointer; display: block; }
+  .opt:has(input:checked) { border-color: #0f4c81; background: #f1f6fb; }
+  .opt b { font-size: 15px; } .opt small { display: block; color: #666; margin: 4px 0 0 24px; }
+  input[type=text] { width: 100%; box-sizing: border-box; padding: 10px; font-size: 15px; border: 1px solid #c9d2de; border-radius: 8px; margin-top: 8px; }
+  button { margin-top: 14px; width: 100%; padding: 13px; font-size: 16px; font-weight: 600; border: none; border-radius: 8px; background: #0f4c81; color: #fff; cursor: pointer; }
+  .msg { color: #b3261e; margin-top: 10px; min-height: 18px; }
+</style></head>
+<body><div class="card">
+  <h1>Sri Vengarai Suraj Logistics ERP</h1>
+  <p>How will this computer use the ERP?</p>
+  <label class="opt"><input type="radio" name="mode" value="server" checked /> <b>This computer is the main ERP computer</b>
+    <small>Recommended for the office computer. The database and all data are kept on this computer; other computers and phones connect to it. Keep it switched on during working hours.</small></label>
+  <label class="opt"><input type="radio" name="mode" value="client" /> <b>Connect to the ERP on another computer or the internet</b>
+    <small>For additional office computers. Nothing is stored here.</small>
+    <input type="text" id="url" placeholder="192.168.1.20:8000  or  https://erp.yourcompany.in" /></label>
+  <button id="go">Continue</button>
+  <div class="msg" id="msg"></div>
+  <p style="font-size:12px;color:#888" id="ver"></p>
+</div>
+<script>
+  window.svsl.info().then(function (i) { document.getElementById("ver").textContent = "Version " + i.version + " · Files & backups: " + i.home; });
+  document.getElementById("url").onfocus = function () { document.querySelector("input[value=client]").checked = true; };
+  document.getElementById("go").onclick = async function () {
+    var mode = document.querySelector("input[name=mode]:checked").value, url = document.getElementById("url").value, msg = document.getElementById("msg");
+    msg.textContent = "";
+    if (mode === "client") {
+      if (!url.trim()) { msg.textContent = "Enter the server address."; return; }
+      var u = url.trim(); if (!/^https?:\/\//i.test(u)) u = "http://" + u; if (/^http:/i.test(u) && !/:\d+$/.test(u.replace(/^https?:\/\//i, "").split("/")[0])) u += ":8000";
+      msg.style.color = "#555"; msg.textContent = "Checking " + u + " …";
+      var t = await window.svsl.testUrl(u);
+      if (!t.ok) { msg.style.color = "#b3261e"; msg.textContent = t.message + ". Check the address and that SVSL ERP is open on that computer."; return; }
+    }
+    var r = await window.svsl.save({ mode: mode, url: url });
+    if (r && !r.ok) { msg.textContent = r.message; }
+  };
+</script></body></html>

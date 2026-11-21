@@ -16,10 +16,19 @@ GST, English + Tamil interface.
 svsl-erp/
   backend/            FastAPI app (app/), Alembic migrations, pytest suite (tests/)
   frontend/           React + TypeScript single-page app (customer portal and driver app included)
+  desktop/            Windows app (Electron) bundling PostgreSQL + the server → installer .exe
+  mobile/             Android app (Capacitor) → .apk
   docs/               INSTALL, DEPLOYMENT, ADMIN_MANUAL, USER_MANUAL, INTEGRATIONS, API, openapi.json
   deploy/             nginx (HTTPS) and systemd samples
   Dockerfile, docker-compose.yml, run-dev.sh, START-WINDOWS.bat
 ```
+
+## Install as apps
+
+* **Windows:** `SVSL-ERP-Setup-1.0.0.exe` – one installer with the database and server included; the office PC becomes the ERP server.
+* **Android:** `SVSL-ERP.apk` – connects phones to that server (drivers, customers, staff).
+
+Both are on the repository's **Releases** page, built by GitHub Actions. Step-by-step: [docs/INSTALL-APPS.md](docs/INSTALL-APPS.md).
 
 ## Quick start (development)
 
@@ -70,7 +79,7 @@ production database). Full instructions: [docs/INSTALL.md](docs/INSTALL.md). Pro
 ## Tests
 
 ```bash
-cd backend && python -m pytest -q        # 54 tests: core, freight engine, end-to-end workflows, security, modules, backup/restore
+cd backend && python -m pytest -q        # 55 tests: core, freight engine, end-to-end workflows, security, modules, backup/restore
 ```
 
 ## What needs external subscriptions or approvals
