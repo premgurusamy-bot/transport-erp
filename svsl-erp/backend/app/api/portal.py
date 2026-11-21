@@ -20,6 +20,7 @@ from ..models import (
     Invoice, Ledger, LocationPing, MaintenanceJob, Trip, TripEvent, TripExpense, Vehicle, Vendor, Voucher, VoucherEntry,
 )
 from ..services import accounting as acc
+from ..services import layouts
 from ..services import exports, files, notify, pdf, people
 from ..services import operations as ops
 from ..services import reports as rep
@@ -125,7 +126,7 @@ def report_run(key: str, request: Request, db: Session = Depends(get_db), user: 
     if fmt == "xlsx":
         return Response(exports.report_xlsx(data, company.legal_name), media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", headers={"Content-Disposition": f'attachment; filename="{name}.xlsx"'})
     if fmt == "pdf":
-        return Response(pdf.report_pdf(data, company), media_type="application/pdf", headers={"Content-Disposition": f'inline; filename="{name}.pdf"'})
+        return Response(pdf.report_pdf(data, company, layouts.get(db, "report")), media_type="application/pdf", headers={"Content-Disposition": f'inline; filename="{name}.pdf"'})
     if fmt == "csv":
         return Response(exports.report_csv(data), media_type="text/csv", headers={"Content-Disposition": f'attachment; filename="{name}.csv"'})
     return jsonable(data)
@@ -226,7 +227,7 @@ def portal_lr_pdf(lid: int, db: Session = Depends(get_db), user: CurrentUser = D
     from .operations import _lr_pdf_bytes
 
     lr = _own_lr(db, user, lid)
-    return Response(_lr_pdf_bytes(db, lr, "A4", "Consignor Copy"), media_type="application/pdf", headers={"Content-Disposition": f'inline; filename="LR_{lr.lr_no.replace("/", "-")}.pdf"'})
+    return Response(_lr_pdf_bytes(db, lr, "A4", "first"), media_type="application/pdf", headers={"Content-Disposition": f'inline; filename="LR_{lr.lr_no.replace("/", "-")}.pdf"'})
 
 
 @router.get("/portal/lr/{lid}/pod")
@@ -273,7 +274,7 @@ def portal_statement(start: str | None = None, end: str | None = None, format: s
     data = rep.customer_statement(db, date.fromisoformat(start) if start else fs, date.fromisoformat(end) if end else date.today(), customer_id=user.customer_id)
     company = app_settings.company(db)
     if format == "pdf":
-        return Response(pdf.report_pdf(data, company), media_type="application/pdf")
+        return Response(pdf.report_pdf(data, company, layouts.get(db, "report")), media_type="application/pdf")
     if format == "xlsx":
         return Response(exports.report_xlsx(data, company.legal_name), media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", headers={"Content-Disposition": 'attachment; filename="statement.xlsx"'})
     return jsonable(data)

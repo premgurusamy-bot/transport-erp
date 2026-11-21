@@ -3,6 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import { api, can, qs } from "../lib/api";
 import { dt, label } from "../lib/format";
 import ResourcePage from "../components/ResourcePage";
+import LayoutsEditor from "./Layouts";
 import { Badge, Btn, Card, Field, FieldInput, Modal, Page, RefSelect, Table, Tabs, download, run, toast, useLoad } from "../components/ui";
 
 export function Company() {
@@ -44,7 +45,8 @@ export function Settings() {
   const save = async () => { const r = await run(() => api.put(`/api/settings/${tab}`, sec), "Settings saved"); if (r) setData({ ...data, [tab]: r }); };
   const set = (k: string, v: any) => setData({ ...data, [tab]: { ...sec, [k]: v } });
   return <Page title="Settings">
-    <Tabs tabs={["General", "GST treatments", "Numbering", "Notification templates", "Integrations"]} value={sub} onChange={setSub} />
+    <Tabs tabs={["General", "Document layouts", "GST treatments", "Numbering", "Notification templates", "Integrations"]} value={sub} onChange={setSub} />
+    {sub === "Document layouts" && <LayoutsEditor />}
     {sub === "General" && <div className="settings">
       <nav className="report-list">{Object.keys(data).map((k) => <a key={k} className={k === tab ? "on" : ""} onClick={() => setTab(k)}>{label(k)}</a>)}</nav>
       <Card title={label(tab)} className="grow">

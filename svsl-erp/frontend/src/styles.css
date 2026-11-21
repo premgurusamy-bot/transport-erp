@@ -99,6 +99,8 @@ textarea { resize: vertical; width: 100%; }
 .report-list a { display: block; padding: 5px 8px; border-radius: 6px; text-decoration: none; color: var(--ink); font-size: 13px; } .report-list a.on { background: var(--info-bg); color: var(--info); font-weight: 600; }
 .calc { background: var(--muted-bg); padding: 8px 10px; border-radius: 6px; margin-top: 8px; } .calc .total { border-top: 1px solid var(--line); margin-top: 4px; padding-top: 4px; }
 .perm-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 4px 12px; }
+.asset { border: 1px solid var(--line); border-radius: 8px; padding: 10px; min-width: 240px; display: flex; flex-direction: column; gap: 6px; }
+.asset-img { height: 70px; display: flex; align-items: center; justify-content: center; background: #fff; border-radius: 6px; } .asset-img img { max-height: 66px; max-width: 220px; }
 .scanner { width: 100%; max-width: 360px; border-radius: 8px; margin-top: 6px; }
 .login-bg { min-height: 100vh; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, var(--side), var(--brand)); padding: 16px; }
 .login { background: var(--panel); padding: 28px; border-radius: 12px; width: min(380px, 100%); box-shadow: 0 20px 50px rgba(0, 0, 0, .3); }

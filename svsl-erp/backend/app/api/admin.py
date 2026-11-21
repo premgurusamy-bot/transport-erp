@@ -410,3 +410,103 @@ async def restore(confirm: str = Form(...), backup_id: int | None = Form(None), 
         raise AppError("Choose a backup or upload a backup file")
     result = files.restore_backup(db, user, path, keep_users=keep_users)
     return result
+
+
+# ------------------------------------------------------------------ document layouts
+
+@router.get("/layouts")
+def get_layouts(db: Session = Depends(get_db), user: CurrentUser = Depends(require("settings:read"))):
+    from ..services import layouts
+
+    return {"layouts": layouts.get(db), "defaults": layouts.DEFAULTS, "documents": layouts.DOCS}
+
+
+@router.put("/layouts/{doc}")
+def put_layout(doc: str, data: dict, db: Session = Depends(get_db), user: CurrentUser = Depends(require("settings:write"))):
+    from ..services import layouts
+
+    before = layouts.get(db, doc)
+    after = layouts.save(db, doc, data, user.id)
+    b, a = diff(jsonable(before), jsonable(after))
+    log(db, user, "update", "layouts", doc, b, a, ip=user.ip)
+    db.commit()
+    return after
+
+
+@router.post("/layouts/{doc}/reset")
+def reset_layout(doc: str, db: Session = Depends(get_db), user: CurrentUser = Depends(require("settings:write"))):
+    from ..services import layouts
+
+    if doc not in layouts.DEFAULTS:
+        raise AppError("Unknown document type", 404)
+    out = layouts.reset(db, doc, user.id)
+    log(db, user, "reset", "layouts", doc, ip=user.ip)
+    db.commit()
+    return out
+
+
+@router.post("/layouts/{doc}/preview")
+def preview_layout(doc: str, data: dict, db: Session = Depends(get_db), user: CurrentUser = Depends(require("settings:read"))):
+    """PDF with the (unsaved) layout, using the latest real document – or a clearly marked sample."""
+    from fastapi.responses import Response
+
+    from ..services import layouts, pdf
+    from ..services.samples import sample_invoice, sample_lr
+
+    draft = layouts._merge(layouts.DEFAULTS[doc], layouts.validate(doc, data)) | {"_assets": layouts.get(db)["_assets"]} if doc in layouts.DEFAULTS else None
+    if draft is None:
+        raise AppError("Unknown document type", 404)
+    company = app_settings.company(db)
+    if doc == "invoice":
+        inv, cust, lines, bank, treat = sample_invoice(db)
+        out = pdf.invoice_pdf(inv, company, cust, lines, bank, treat, None, draft)
+    elif doc in ("lr", "thermal"):
+        lr, cust, items, points = sample_lr(db)
+        out = pdf.lr_pdf(lr, company, cust, items, points, None, "thermal" if doc == "thermal" else "A4", draft if doc == "lr" else None, draft if doc == "thermal" else None)
+    else:
+        from ..services.reports import trial_balance_report
+        from ..core.numbering import financial_year, fy_bounds
+
+        s, e = fy_bounds(financial_year(date.today()))
+        out = pdf.report_pdf(trial_balance_report(db, s, date.today()), company, draft)
+    db.rollback()
+    return Response(out, media_type="application/pdf", headers={"Content-Disposition": f'inline; filename="preview-{doc}.pdf"'})
+
+
+@router.post("/layouts/assets/{name}")
+async def upload_layout_asset(name: str, file: UploadFile = File(...), db: Session = Depends(get_db), user: CurrentUser = Depends(require("settings:write"))):
+    from ..services import layouts
+
+    if name not in ("signature", "stamp"):
+        raise AppError("Unknown image", 404)
+    content = await file.read()
+    if len(content) > 2 * 1024 * 1024 or not (content.startswith(b"\x89PNG") or content.startswith(b"\xff\xd8\xff")):
+        raise AppError("Use a PNG (transparent background works best) or JPEG under 2 MB")
+    ext = ".png" if content.startswith(b"\x89PNG") else ".jpg"
+    fname = f"{name}_{secrets.token_hex(6)}{ext}"
+    (get_settings().storage_dir).mkdir(parents=True, exist_ok=True)
+    (get_settings().storage_dir / fname).write_bytes(content)
+    layouts.set_asset(db, name, fname, user.id)
+    log(db, user, "upload", "layouts", name, None, {"file": fname}, ip=user.ip)
+    db.commit()
+    return {"ok": True}
+
+
+@router.delete("/layouts/assets/{name}")
+def delete_layout_asset(name: str, db: Session = Depends(get_db), user: CurrentUser = Depends(require("settings:write"))):
+    from ..services import layouts
+
+    layouts.set_asset(db, name, None, user.id)
+    log(db, user, "delete", "layouts", name, ip=user.ip)
+    db.commit()
+    return {"ok": True}
+
+
+@router.get("/layouts/assets/{name}")
+def get_layout_asset(name: str, db: Session = Depends(get_db), user: CurrentUser = Depends(require("settings:read"))):
+    from ..services import layouts
+
+    f = layouts.get(db)["_assets"].get(name)
+    if not f or not (get_settings().storage_dir / f).exists():
+        raise AppError("Not uploaded", 404)
+    return FileResponse(get_settings().storage_dir / f)

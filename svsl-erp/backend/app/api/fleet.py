@@ -18,7 +18,7 @@ from ..models import (
     MaintenanceJob, PayrollRun, Payslip, RegisterEntry, StatutoryRegister, StockDoc, StockMovement, Trip, TripExpense, Tyre,
     TyreEvent, Vehicle, VehicleEvent, Warehouse,
 )
-from ..services import business, files, people, pdf
+from ..services import business, files, layouts, people, pdf
 from ..services import settings as app_settings
 
 router = APIRouter(prefix="/api", tags=["fleet & admin"])
@@ -307,7 +307,7 @@ def payslip_pdf(sid: int, db: Session = Depends(get_db), user: CurrentUser = Dep
     run = db.get(PayrollRun, s.run_id)
     rows = [{"head": h, "amount": v} for h, v in (("Paid days", f"{s.paid_days} / {s.days_in_month}"), ("Basic + DA", s.basic), ("HRA", s.hra), ("Allowances", s.allowances), ("GROSS", s.gross), ("EPF (employee)", s.pf_employee), ("ESI (employee)", s.esi_employee), ("Professional tax", s.professional_tax), ("TDS", s.tds), ("Advance recovery", s.advance_recovery), ("NET PAY", s.net_pay))]
     rep = {"title": f"Payslip – {s.name} – {run.month}", "columns": [{"key": "head", "label": "Particulars", "w": 3}, {"key": "amount", "label": "Amount", "type": None}], "rows": rows}
-    return Response(pdf.report_pdf(rep, app_settings.company(db)), media_type="application/pdf")
+    return Response(pdf.report_pdf(rep, app_settings.company(db), layouts.get(db, "report")), media_type="application/pdf")
 
 
 # ------------------------------------------------------------------ compliance

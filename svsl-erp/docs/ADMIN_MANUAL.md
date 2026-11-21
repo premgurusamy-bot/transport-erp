@@ -36,6 +36,30 @@
 `SVL/LR/2026-27/00001`). The next number can be increased, never decreased; the database also enforces
 uniqueness. A new FY starts at 1 automatically using the previous year's prefix and format.
 
+## Document layouts (invoices, LR, reports)
+
+*Settings → Document layouts* changes how printed PDFs look, separately for **Invoices & notes**, **LR (A4)**,
+**LR (thermal roll)** and **Reports & statements**:
+
+* **Page** – paper size (A4 / A5 / Letter / Legal), orientation, margins, font size, footer text, page numbers.
+* **Header** – logo position (left / right / centre / none) and size; which company details print (legal name,
+  address, GSTIN, PAN, CIN, contact); extra header lines; document titles (e.g. rename "TAX INVOICE" to
+  "FREIGHT BILL", "LORRY RECEIPT" to "GOODS CONSIGNMENT NOTE").
+* **Colours** – accent colour, table borders, table header background.
+* **Copies** – which copies print, one page each (e.g. *Original for Recipient*, *Duplicate for Supplier*; LR:
+  Consignor / Consignee / Driver / Office). Freight amounts can be hidden on chosen LR copies.
+* **Columns** – show/hide, rename, re-order and size the columns of the invoice and LR goods tables
+  (the description column always prints).
+* **Sections** – QR code, bank details, amount in words, tax summary, terms, declaration, delivery points,
+  driver details, acknowledgement box, signature-box labels, extra note, watermarks for proforma / cancelled.
+* **Signature & stamp images** – upload the authorised signatory's signature and the company seal (PNG with a
+  transparent background works best); they print in the signature box.
+
+**Preview PDF** shows the unsaved layout on your latest real document (or a marked SAMPLE). **Save layout**
+applies it to every print from then on (reprints of old documents use the new layout too – the data never
+changes, only the look). **Reset to default** restores the original design. GST-mandatory wording such as the
+reverse-charge statement is always printed. Every layout change is recorded in the audit trail.
+
 ## GST configuration
 
 *Settings → GST treatments*: each treatment has SAC, rate, mechanism (FCM / RCM / EXEMPT / NIL) and ITC flag.

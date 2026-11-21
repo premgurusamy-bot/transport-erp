@@ -19,7 +19,6 @@ DEFAULTS: dict[str, dict] = {
     },
     "lr": {
         "default_print": "A4",
-        "copies": ["Consignor Copy", "Consignee Copy", "Driver Copy", "Office Copy"],
         "require_eway_above_value": 50000,
         "allow_lr_without_vehicle": True,
     },

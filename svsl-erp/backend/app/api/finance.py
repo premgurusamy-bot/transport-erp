@@ -89,7 +89,9 @@ def invoice_pdf_bytes(db: Session, inv: Invoice) -> bytes:
     lines = db.query(InvoiceLine).filter_by(invoice_id=inv.id).order_by(InvoiceLine.line_no).all()
     bank = db.query(BankAccount).filter_by(is_active=True, print_on_invoice=True).order_by(BankAccount.id).first() if app_settings.get(db, "invoice")["show_bank_details"] else None
     ref = db.get(Invoice, inv.reference_invoice_id) if inv.reference_invoice_id else None
-    return pdf.invoice_pdf(inv, company, cust, lines, bank, db.get(GstTreatment, inv.gst_treatment_id) if inv.gst_treatment_id else None, ref)
+    from ..services import layouts
+
+    return pdf.invoice_pdf(inv, company, cust, lines, bank, db.get(GstTreatment, inv.gst_treatment_id) if inv.gst_treatment_id else None, ref, layouts.get(db, "invoice"))
 
 
 @router.get("/invoices/{iid}/pdf")

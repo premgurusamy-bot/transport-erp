@@ -118,7 +118,7 @@ export function LRDetail({ id, onClose }: { id: number; onClose: () => void }) {
       <Badge v={lr.status} />{lr.revision > 0 && <span className="badge">Rev {lr.revision}</span>}
       <div className="grow" />
       <Btn small onClick={() => download(`/api/lr/${id}/pdf`)}>PDF (all copies)</Btn>
-      <Btn small onClick={() => download(`/api/lr/${id}/pdf?copy=Consignor%20Copy`)}>PDF single</Btn>
+      <Btn small onClick={() => download(`/api/lr/${id}/pdf?copy=first`)}>PDF single</Btn>
       <Btn small onClick={() => download(`/api/lr/${id}/pdf?fmt=thermal`)}>Thermal 80mm</Btn>
       <Btn small onClick={() => setModal("share")}>Share</Btn>
       {can("lr:write") && lr.status !== "Cancelled" && <>

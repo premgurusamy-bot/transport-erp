@@ -160,8 +160,12 @@ def _lr_pdf_bytes(db: Session, lr: Consignment, fmt: str, copy: str | None) -> b
     cust = db.get(Customer, lr.customer_id)
     items = db.query(ConsignmentItem).filter_by(consignment_id=lr.id).order_by(ConsignmentItem.id).all()
     points = db.query(DeliveryPoint).filter_by(consignment_id=lr.id).order_by(DeliveryPoint.sequence).all()
-    copies = [copy] if copy else app_settings.get(db, "lr")["copies"]
-    return pdf.lr_pdf(lr, company, cust, items, points, copies, fmt)
+    from ..services import layouts
+
+    L = layouts.get(db, "lr")
+    if copy == "first":
+        copy = (L.get("copies") or ["Original"])[0]
+    return pdf.lr_pdf(lr, company, cust, items, points, [copy] if copy else None, fmt, L, layouts.get(db, "thermal"))
 
 
 @router.get("/lr/{lid}/pdf")
@@ -187,7 +191,7 @@ def share_lr(lid: int, data: dict, db: Session = Depends(get_db), user: CurrentU
         to = data.get("to") or (cust.email if cust else None)
         if not to:
             raise AppError("No email address")
-        status, err = channels.send_email(to, f"LR {lr.lr_no}", text, [(f"LR_{lr.lr_no.replace('/', '-')}.pdf", _lr_pdf_bytes(db, lr, "A4", "Consignor Copy"), "application/pdf")])
+        status, err = channels.send_email(to, f"LR {lr.lr_no}", text, [(f"LR_{lr.lr_no.replace('/', '-')}.pdf", _lr_pdf_bytes(db, lr, "A4", "first"), "application/pdf")])
     elif channel == "whatsapp":
         status, err = channels.send_whatsapp(data.get("to") or (cust.whatsapp or cust.mobile), text)
     else:
