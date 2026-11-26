@@ -36,6 +36,7 @@ class Resource:
     date_field: str | None = None
     default_sort: str = "-id"
     extra_filters: list[str] = field(default_factory=list)
+    lookup_only: bool = False  # only serves dropdown lookups (records are managed by their own screens/APIs)
 
 
 REGISTRY: dict[str, Resource] = {}
@@ -196,9 +197,9 @@ def _query(db: Session, res: Resource, params: dict):
 router = APIRouter(prefix="/api/r", tags=["masters"])
 
 
-def get_res(name: str, user: CurrentUser, write: bool = False) -> Resource:
+def get_res(name: str, user: CurrentUser, write: bool = False, lookup: bool = False) -> Resource:
     res = REGISTRY.get(name)
-    if not res:
+    if not res or (res.lookup_only and (write or not lookup)):
         raise AppError("Unknown resource", 404)
     need = (res.write_perm or f"{res.perm}:write") if write else f"{res.perm}:read"
     if not user.can(need):
@@ -217,15 +218,16 @@ def meta(name: str, user: CurrentUser = Depends(get_current_user)):
 
 @router.get("/{name}")
 def list_items(name: str, request: Request, db: Session = Depends(get_db), user: CurrentUser = Depends(get_current_user)):
-    res = get_res(name, user)
     params = dict(request.query_params)
+    res = get_res(name, user, lookup=bool(params.get("lookup")))
     stmt = _query(db, res, params)
     m = res.model
     if params.get("lookup"):
         cols = {c.name: c for c in m.__table__.columns}
         if "is_active" in cols and not params.get("all"):
             stmt = stmt.where(cols["is_active"].is_(True))
-        rows = db.execute(stmt.order_by(cols[res.label] if res.label in cols else cols["id"]).limit(2000)).scalars().all()
+        order = cols["id"].desc() if res.lookup_only and res.label != "name" else (cols[res.label] if res.label in cols else cols["id"])
+        rows = db.execute(stmt.order_by(order).limit(2000)).scalars().all()
         return [{"id": r.id, "label": str(getattr(r, res.label, r.id))} for r in rows]
     total = db.execute(select(func.count()).select_from(stmt.subquery())).scalar()
     sort = params.get("sort") or res.default_sort

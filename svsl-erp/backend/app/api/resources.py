@@ -9,10 +9,11 @@ from ..core.deps import AppError
 from ..core.money import D
 from ..core.numbering import next_number
 from ..models import (
+    AccountGroup, Role, Voucher,
     BankAccount, Booking, Branch, ComplianceRule, Consignment, Customer, Department, Driver, DriverAdvance, DriverIncident,
     DutyRoster, Employee, EwayBill, FuelCard, FuelEntry, FuelStation, GstTreatment, Invoice, Item, LeaveRequest, LeaveType,
     Ledger, MaintenanceSchedule, NotificationTemplate, NumberSeries, RateContract, Route, RouteToll, SalaryAdvance,
-    StatutoryRegister, TollPlaza, Tyre, Vehicle, VehicleEvent, Vendor, Warehouse, WarehouseRateCard, Document,
+    StatutoryRegister, TollPlaza, Trip, Tyre, Vehicle, VehicleEvent, Vendor, Warehouse, WarehouseRateCard, Document,
 )
 from ..services import accounting as acc
 from ..services import operations as ops
@@ -182,4 +183,10 @@ register("salary_advances", Resource(SalaryAdvance, "payroll", label="advance_da
 register("compliance_rules", Resource(ComplianceRule, "compliance", label="name", search=["name", "code", "category"], title="Statutory requirements"))
 register("statutory_registers", Resource(StatutoryRegister, "compliance", label="name", title="Statutory registers"))
 register("notification_templates", Resource(NotificationTemplate, "notifications", label="event", search=["event", "channel", "body"], title="Notification templates", write_perm="settings:write"))
+# Dropdown lookups only (newest first): trips and LRs are created and changed through their own workflows.
+register("trips", Resource(Trip, "trips", label="trip_no", title="Trips", creatable=False, updatable=False, lookup_only=True))
+register("consignments", Resource(Consignment, "lr", label="lr_no", title="LR / consignments", creatable=False, updatable=False, lookup_only=True))
+register("vouchers", Resource(Voucher, "accounts", label="voucher_no", title="Vouchers", creatable=False, updatable=False, lookup_only=True))
+register("account_groups", Resource(AccountGroup, "accounts", label="name", title="Account groups", creatable=False, updatable=False, lookup_only=True))
+register("roles", Resource(Role, "users", label="name", title="Roles", creatable=False, updatable=False, lookup_only=True))
 register("number_series", Resource(NumberSeries, "settings", label="doc_type", search=["doc_type", "fy"], title="Document numbering", creatable=True, before_save=_series_save))

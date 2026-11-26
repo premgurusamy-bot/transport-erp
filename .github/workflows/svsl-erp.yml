@@ -103,7 +103,8 @@ jobs:
           [System.IO.File]::WriteAllText($pw, "smoke-pass")
           if (-not (Test-Path $pw)) { throw "password file not written" }
           & "$res/pgsql/bin/initdb.exe" -D $data -U svsl "--pwfile=$pw" -E UTF8 --locale=C -A scram-sha-256
-          & "$res/pgsql/bin/pg_ctl.exe" start -w -D $data -l (Join-Path $tmp "pg.log") -o "-p 54329 -h 127.0.0.1"
+          # start the database exactly as the desktop app does (pgctl.cjs); fail if it takes longer than 60 s
+          node svsl-erp/desktop/pgctl.cjs "$res/pgsql/bin/pg_ctl.exe" 60 start -w -t 120 -D $data -l (Join-Path $tmp "pg.log") -o "-p 54329 -h 127.0.0.1"
           $env:PGPASSWORD = "smoke-pass"
           & "$res/pgsql/bin/createdb.exe" -h 127.0.0.1 -p 54329 -U svsl svsl_erp
           $env:DATABASE_URL = "postgresql+psycopg://svsl:smoke-pass@127.0.0.1:54329/svsl_erp"

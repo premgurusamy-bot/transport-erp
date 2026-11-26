@@ -16,6 +16,7 @@ const os = require("node:os");
 const crypto = require("node:crypto");
 const http = require("node:http");
 const { spawn, execFile } = require("node:child_process");
+const { pgCtlStart } = require("./pgctl.cjs");
 
 const VERSION = app.getVersion();
 const WIN = process.platform === "win32";
@@ -68,6 +69,12 @@ function run(file, args, env = {}, opts = {}) {
   });
 }
 
+function startPostgres(args, env) {
+  return pgCtlStart(path.join(pgBin, "pg_ctl" + EXE), args, env).then(
+    (s) => log(`$ pg_ctl ${args.join(" ")}\nready after ${s.toFixed(1)} s`),
+    (e) => { log(`$ pg_ctl ${args.join(" ")}\nFAILED: ${e.message}`); throw new Error(`The database could not start (${e.message}). See postgres.log in ${logDir}`); });
+}
+
 function waitForHealth(url, ms) {
   const until = Date.now() + ms;
   return new Promise((resolve, reject) => {
@@ -114,7 +121,7 @@ async function startDatabase(firstRun) {
   status("Starting the database…");
   const running = await run(path.join(pgBin, "pg_ctl" + EXE), ["status", "-D", pgData], pgEnv).then(() => true, () => false);
   if (!running) {
-    await run(path.join(pgBin, "pg_ctl" + EXE), ["start", "-w", "-t", "120", "-D", pgData, "-l", path.join(logDir, "postgres.log"), "-o", `-p ${PG_PORT} -h 127.0.0.1${WIN ? "" : ` -k "${localData}"`}`], pgEnv);
+    await startPostgres(["start", "-w", "-t", "120", "-D", pgData, "-l", path.join(logDir, "postgres.log"), "-o", `-p ${PG_PORT} -h 127.0.0.1${WIN ? "" : ` -k "${localData}"`}`], pgEnv);
   }
   const hasDb = await run(path.join(pgBin, "psql" + EXE), ["-h", "127.0.0.1", "-p", String(PG_PORT), "-U", "svsl", "-d", "postgres", "-tAc", "SELECT 1 FROM pg_database WHERE datname='svsl_erp'"], pgEnv);
   if (!hasDb.trim()) await run(path.join(pgBin, "createdb" + EXE), ["-h", "127.0.0.1", "-p", String(PG_PORT), "-U", "svsl", "svsl_erp"], pgEnv);

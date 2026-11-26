@@ -20,7 +20,7 @@
     "productName": "SVL ERP",
     "copyright": "Sree Venkateswara Logistics",
     "directories": { "output": "release" },
-    "files": ["main.cjs", "preload.cjs", "setup.html", "starting.html", "icon.png", "package.json"],
+    "files": ["main.cjs", "pgctl.cjs", "preload.cjs", "setup.html", "starting.html", "icon.png", "package.json"],
     "extraResources": [
       { "from": "res/server", "to": "server" },
       { "from": "res/pgsql", "to": "pgsql" },
