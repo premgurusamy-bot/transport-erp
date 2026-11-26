@@ -43,7 +43,7 @@ const P: Record<string, string> = {
   moon: "M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8",
   monitor: "M2 3h20v14H2zM8 21h8M12 17v4",
   up: "M7 17 17 7M7 7h10v10", down: "M7 7l10 10M17 7v10H7",
-  plus: "M12 5v14M5 12h14", calendar: "M3 4h18v18H3zM16 2v4M8 2v4M3 10h18",
+  plus: "M12 5v14M5 12h14", search: "M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16M21 21l-4.35-4.35", x: "M18 6 6 18M6 6l12 12", calendar: "M3 4h18v18H3zM16 2v4M8 2v4M3 10h18",
   logout: "M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9",
   message: "M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z",
   barcode: "M3 5v14M7 5v14M11 5v14M14 5v14M18 5v14M21 5v14",

@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { api, can, qs } from "../lib/api";
 import { dt, inr, num, today } from "../lib/format";
 import { Badge, Btn, Card, Field, Kpi, Modal, Page, Pager, ReasonModal, RefSelect, Search, Table, Tabs, run, useLoad } from "../components/ui";
+import { F, FilterBar, useUrlFilters } from "../components/filters";
 import { Donut, Icon, Progress, StatCard } from "../components/charts";
 
 export const STAGES = ["Booked", "Vehicle Allocated", "Driver Allocated", "LR Generated", "Loading", "Dispatched", "In Transit", "Delivered", "POD Collected", "Closed", "Billed", "Settled"];
@@ -177,13 +178,15 @@ function TripExpand({ id, onOpen }: { id: number; onOpen: () => void }) {
 export default function Trips() {
   const [sp, setSp] = useSearchParams();
   const [q, setQ] = useState("");
-  const [stage, setStage] = useState("open");
-  const [date, setDate] = useState("");
+  const tripFilters = [F.vehicle, F.driver, F.customer, F.route, F.from, F.to];
+  const [fv, setF, clearF] = useUrlFilters(tripFilters);
+  const [stage, setStage] = useState(() => (Object.keys(fv).length ? "" : "open"));
   const [offset, setOffset] = useState(0);
   const [creating, setCreating] = useState(false);
   const [openRow, setOpenRow] = useState<number | null>(null);
   const stats = useLoad<any>("/api/trips/stats");
-  const list = useLoad<any>(`/api/trips${qs({ q, offset, limit: 50, ...(stage === "open" ? { open: 1 } : stage === "delayed" ? { open: 1 } : stage ? { stage } : {}), from: date, to: date })}`);
+  const list = useLoad<any>(`/api/trips${qs({ q, offset, limit: 50, ...(stage === "open" ? { open: 1 } : stage === "delayed" ? { open: 1 } : stage ? { stage } : {}), ...fv })}`);
+  React.useEffect(() => setOffset(0), [JSON.stringify(fv)]);
   const rows = (list.data?.items || []).filter((r: any) => stage !== "delayed" || r.delayed);
   const st = stats.data;
   const pick = (v: string) => { setStage(v); setOffset(0); };
@@ -196,8 +199,8 @@ export default function Trips() {
     </div>}
     <div className="toolbar"><Search value={q} onChange={setQ} placeholder="Trip no, place…" />
       <select value={stage} onChange={(e) => pick(e.target.value)}><option value="open">Open trips</option><option value="delayed">Delayed</option><option value="">All</option>{[...STAGES, "Cancelled"].map((s) => <option key={s}>{s}</option>)}</select>
-      <label className="row gap small">Daily trip sheet <input type="date" value={date} onChange={(e) => setDate(e.target.value)} /></label>
       <div className="grow" /><span className="muted small">{list.data?.total ?? ""} trip(s)</span></div>
+    <FilterBar specs={tripFilters} values={fv} set={setF} clear={clearF} />
     <div className="table-wrap"><table className="tbl">
       <thead><tr><th style={{ width: 34 }} /><th>Trip</th><th>Status</th><th>Vehicle</th><th>Driver</th><th>Customer</th><th>Route</th><th>Progress</th><th>Date</th><th>ETA</th></tr></thead>
       <tbody>

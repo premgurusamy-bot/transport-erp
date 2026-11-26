@@ -4,7 +4,7 @@ from __future__ import annotations
 import uuid
 from datetime import date, datetime, timedelta, timezone
 
-from fastapi import APIRouter, Depends, File, Request, UploadFile
+from fastapi import APIRouter, Depends, File, Query, Request, UploadFile
 from fastapi.responses import Response
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
@@ -234,6 +234,9 @@ def list_vouchers(request: Request, db: Session = Depends(get_db), user: Current
         q = q.filter(Voucher.voucher_date <= date.fromisoformat(p["to"]))
     if p.get("q"):
         q = q.filter(or_(Voucher.voucher_no.ilike(f"%{p['q']}%"), Voucher.narration.ilike(f"%{p['q']}%"), Voucher.reference.ilike(f"%{p['q']}%")))
+    for key, col in (("vehicle_id", VoucherEntry.cost_vehicle_id), ("trip_id", VoucherEntry.cost_trip_id), ("ledger_id", VoucherEntry.ledger_id)):
+        if p.get(key):  # vouchers with at least one line for this vehicle / trip / ledger
+            q = q.filter(Voucher.id.in_(select(VoucherEntry.voucher_id).where(col == int(p[key]))))
     total = q.count()
     rows = q.order_by(Voucher.voucher_date.desc(), Voucher.id.desc()).limit(min(int(p.get("limit") or 100), 1000)).offset(int(p.get("offset") or 0)).all()
     return {"total": total, "items": [jsonable({c.name: getattr(v, c.name) for c in Voucher.__table__.columns}) for v in rows]}
@@ -521,10 +524,17 @@ def list_grn(db: Session = Depends(get_db), user: CurrentUser = Depends(require(
 
 
 @router.get("/vendor-bills")
-def list_bills(vendor_id: int | None = None, status: str | None = None, db: Session = Depends(get_db), user: CurrentUser = Depends(require("purchase:read"))):
+def list_bills(vendor_id: int | None = None, status: str | None = None, vehicle_id: int | None = None, start: str | None = Query(None, alias="from"), end: str | None = Query(None, alias="to"),
+               db: Session = Depends(get_db), user: CurrentUser = Depends(require("purchase:read"))):
     q = db.query(VendorBill)
     if vendor_id:
         q = q.filter_by(vendor_id=vendor_id)
+    if vehicle_id:
+        q = q.filter_by(vehicle_id=vehicle_id)
+    if start:
+        q = q.filter(VendorBill.bill_date >= date.fromisoformat(start))
+    if end:
+        q = q.filter(VendorBill.bill_date <= date.fromisoformat(end))
     if status:
         q = q.filter(VendorBill.status.in_(status.split(",")))
     names = {v.id: v.name for v in db.query(Vendor)}

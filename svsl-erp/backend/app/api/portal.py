@@ -10,7 +10,7 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from ..core.audit import jsonable, log
-from ..core.deps import AppError, CurrentUser, require
+from ..core.deps import AppError, CurrentUser, get_current_user, require
 from ..core.money import D, ZERO, r2
 from ..core.numbering import financial_year, fy_bounds, next_number
 from ..core.security import sign
@@ -131,6 +131,55 @@ def dashboard(start: str | None = None, end: str | None = None, customer_id: int
         "open_trips": len(open_trips), "delayed_trips": len(delayed), "ongoing": ongoing,
         "maintenance_due": sum(1 for a in alerts if a["category"] == "Maintenance"),
     })
+
+
+# ------------------------------------------------------------------ global search (top bar)
+
+@router.get("/search")
+def global_search(q: str = "", db: Session = Depends(get_db), user: CurrentUser = Depends(get_current_user)):
+    """Find vehicles, drivers, customers, vendors, employees, trips, LRs and invoices by number or name.
+    Only record types the user may read are searched; vehicle numbers match with or without spaces and hyphens."""
+    from ..models import Employee
+
+    text_q = q.strip()
+    if len(text_q) < 2:
+        return []
+    like = f"%{text_q}%"
+    compact = "%" + "".join(ch for ch in text_q.upper() if ch.isalnum()) + "%"
+    squash = lambda col: func.upper(func.replace(func.replace(col, " ", ""), "-", ""))  # noqa: E731
+    groups = []
+
+    def add(kind, title, perm, rows, fn):
+        if user.can(perm):
+            items = [fn(r) for r in rows()]
+            if items:
+                groups.append({"kind": kind, "title": title, "items": items})
+
+    add("vehicle", "Vehicles", "vehicles:read",
+        lambda: db.query(Vehicle).filter(or_(squash(Vehicle.registration_no).like(compact), Vehicle.chassis_no.ilike(like))).order_by(Vehicle.registration_no).limit(6),
+        lambda v: {"id": v.id, "label": v.registration_no, "sub": " · ".join(filter(None, [v.vehicle_type, v.status]))})
+    add("driver", "Drivers", "drivers:read",
+        lambda: db.query(Driver).filter(or_(Driver.name.ilike(like), Driver.code.ilike(like), Driver.mobile.ilike(like), Driver.licence_no.ilike(like))).order_by(Driver.name).limit(6),
+        lambda d: {"id": d.id, "label": d.name, "sub": " · ".join(filter(None, [d.code, d.mobile, d.status]))})
+    add("customer", "Customers", "customers:read",
+        lambda: db.query(Customer).filter(or_(Customer.name.ilike(like), Customer.code.ilike(like), Customer.gstin.ilike(like), Customer.mobile.ilike(like))).order_by(Customer.name).limit(6),
+        lambda c: {"id": c.id, "label": c.name, "sub": " · ".join(filter(None, [c.code, c.billing_city, c.gstin]))})
+    add("vendor", "Vendors", "vendors:read",
+        lambda: db.query(Vendor).filter(or_(Vendor.name.ilike(like), Vendor.code.ilike(like), Vendor.gstin.ilike(like))).order_by(Vendor.name).limit(6),
+        lambda v: {"id": v.id, "label": v.name, "sub": " · ".join(filter(None, [v.code, v.category]))})
+    add("employee", "Employees", "hr:read",
+        lambda: db.query(Employee).filter(or_(Employee.name.ilike(like), Employee.code.ilike(like), Employee.mobile.ilike(like))).order_by(Employee.name).limit(6),
+        lambda e: {"id": e.id, "label": e.name, "sub": " · ".join(filter(None, [e.code, e.designation]))})
+    add("trip", "Trips", "trips:read",
+        lambda: db.query(Trip).filter(Trip.trip_no.ilike(like)).order_by(Trip.id.desc()).limit(6),
+        lambda t: {"id": t.id, "label": t.trip_no, "sub": f"{t.from_place} → {t.to_place} · {t.stage}"})
+    add("lr", "LR / consignments", "lr:read",
+        lambda: db.query(Consignment).filter(or_(Consignment.lr_no.ilike(like), Consignment.eway_bill_no.ilike(like), Consignment.consignee_name.ilike(like), Consignment.customer_invoice_no.ilike(like), squash(Consignment.vehicle_no).like(compact))).order_by(Consignment.id.desc()).limit(6),
+        lambda c: {"id": c.id, "label": c.lr_no, "sub": " · ".join(filter(None, [f"{c.from_place} → {c.to_place}", c.vehicle_no, c.status]))})
+    add("invoice", "Invoices", "invoices:read",
+        lambda: db.query(Invoice).filter(or_(Invoice.invoice_no.ilike(like), Invoice.billing_name.ilike(like))).order_by(Invoice.id.desc()).limit(6),
+        lambda i: {"id": i.id, "label": i.invoice_no, "sub": " · ".join(filter(None, [i.billing_name, str(i.total), i.status]))})
+    return jsonable(groups)
 
 
 # ------------------------------------------------------------------ reports

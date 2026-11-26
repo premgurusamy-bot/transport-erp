@@ -5,6 +5,7 @@ import { dt, fyStart, inr, today } from "../lib/format";
 import ResourcePage, { ListSummary } from "../components/ResourcePage";
 import { Bars, change, Donut, short, StatCard } from "../components/charts";
 import { Badge, Btn, Card, Field, Kpi, Modal, Page, Pager, ReasonModal, RefSelect, Search, Table, Tabs, download, run, toast, useLoad } from "../components/ui";
+import { F, FilterBar, useUrlFilters } from "../components/filters";
 
 export function Vouchers() {
   const [q, setQ] = useState("");
@@ -13,11 +14,15 @@ export function Vouchers() {
   const [view, setView] = useState<number | null>(null);
   const [sp, setSp] = useSearchParams();
   const [creating, setCreating] = useState<string | false>(sp.get("new") || false);
-  const list = useLoad<any>(`/api/vouchers${qs({ q, type, offset, limit: 50 })}`);
+  const vFilters = [F.vehicle, F.ledger, F.from, F.to];
+  const [fv, setF, clearF] = useUrlFilters(vFilters);
+  const list = useLoad<any>(`/api/vouchers${qs({ q, type, offset, limit: 50, ...fv })}`);
+  React.useEffect(() => setOffset(0), [JSON.stringify(fv), type]);
   return <Page title="Vouchers" actions={can("accounts:write") && <Btn kind="primary" onClick={() => setCreating("Journal")}>+ Voucher</Btn>}>
     <ListSummary name="vouchers" icon="book" />
     <div className="toolbar"><Search value={q} onChange={setQ} placeholder="Voucher no / narration / reference" />
       <select value={type} onChange={(e) => setType(e.target.value)}><option value="">All types</option>{["Journal", "Payment", "Receipt", "Contra", "Purchase", "Sales", "Debit Note", "Credit Note"].map((t) => <option key={t}>{t}</option>)}</select></div>
+    <FilterBar specs={vFilters} values={fv} set={setF} clear={clearF} />
     <Table cols={[{ key: "voucher_date", label: "Date", type: "date" }, { key: "voucher_no", label: "No" }, { key: "voucher_type", label: "Type" }, { key: "narration", label: "Narration" }, { key: "reference", label: "Ref" }, { key: "total", label: "Amount", type: "money" }, { key: "status", label: "Status", type: "badge" }]} rows={list.data?.items || []} onRow={(r) => setView(r.id)} />
     <Pager total={list.data?.total || 0} limit={50} offset={offset} onChange={setOffset} />
     {view && <VoucherView id={view} onClose={() => { setView(null); list.reload(); }} />}

@@ -4,7 +4,7 @@ from __future__ import annotations
 import io
 from datetime import date, datetime, timedelta, timezone
 
-from fastapi import APIRouter, Depends, File, Form, Request, UploadFile
+from fastapi import APIRouter, Depends, File, Form, Query, Request, UploadFile
 from fastapi.responses import Response
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -65,10 +65,17 @@ def vehicle_summary(vid: int, start: str | None = None, end: str | None = None, 
 # ------------------------------------------------------------------ maintenance
 
 @router.get("/maintenance/jobs")
-def list_jobs(vehicle_id: int | None = None, status: str | None = None, db: Session = Depends(get_db), user: CurrentUser = Depends(require("maintenance:read"))):
+def list_jobs(vehicle_id: int | None = None, status: str | None = None, vendor_id: int | None = None, start: str | None = Query(None, alias="from"), end: str | None = Query(None, alias="to"),
+              db: Session = Depends(get_db), user: CurrentUser = Depends(require("maintenance:read"))):
     q = db.query(MaintenanceJob)
     if vehicle_id:
         q = q.filter_by(vehicle_id=vehicle_id)
+    if vendor_id:
+        q = q.filter_by(vendor_id=vendor_id)
+    if start:
+        q = q.filter(MaintenanceJob.date_in >= date.fromisoformat(start))
+    if end:
+        q = q.filter(MaintenanceJob.date_in <= date.fromisoformat(end))
     if status:
         q = q.filter_by(status=status)
     veh = {v.id: v.registration_no for v in db.query(Vehicle)}

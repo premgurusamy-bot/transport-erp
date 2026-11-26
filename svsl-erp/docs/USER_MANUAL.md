@@ -3,6 +3,15 @@
 The menu on the left (☰ on phones) shows only the screens your role allows. Language: English / தமிழ் at the top.
 Every list has search; click a row to open it. Amounts are in ₹ with Indian grouping (12,34,567.00), dates DD-MM-YYYY.
 
+## Finding things quickly
+* **Search box** (top bar; press **/** to jump to it): type a vehicle number (spaces and hyphens don't matter – "TN 38 AB 1234"
+  finds TN38AB1234), a driver's name or mobile, a customer, vendor, employee, trip number, LR number, e-way bill number or
+  invoice number. Each vehicle result has quick links to its **Trips, LRs, Diesel, Maintenance and Expenses**; drivers to their
+  trips, LRs and diesel; customers to their trips, LRs, invoices and statement.
+* **Filters** above every list: **vehicle-wise, driver-wise, customer-wise, route-wise, vendor-wise**, status and a date range.
+  The filters are part of the page address, so you can bookmark a filtered list or send the link to a colleague.
+  *Clear filter* removes them. (For a day's trip sheet, set From and To to the same date.)
+
 ## Daily operations
 
 ### 1. Booking → trip

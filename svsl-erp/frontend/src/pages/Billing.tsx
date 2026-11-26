@@ -4,6 +4,7 @@ import { openExternal } from "../lib/native";
 import { api, can, qs } from "../lib/api";
 import { dt, inr, monthStart, today } from "../lib/format";
 import { Badge, Btn, Card, Field, Modal, Page, Pager, ReasonModal, RefSelect, Search, Table, download, run, toast, useLoad, useLookup } from "../components/ui";
+import { F, FilterBar, useUrlFilters } from "../components/filters";
 import { ListSummary } from "../components/ResourcePage";
 
 const DOC_TYPES: Record<string, string> = { tax_invoice: "Tax invoice", proforma: "Proforma invoice", debit_note: "Debit note", credit_note: "Credit note", bill_of_supply: "Bill of supply", advance_receipt: "Advance receipt voucher" };
@@ -107,12 +108,16 @@ export default function Invoices() {
   const [status, setStatus] = useState("");
   const [offset, setOffset] = useState(0);
   const [creating, setCreating] = useState(false);
-  const list = useLoad<any>(`/api/invoices${qs({ q, doc_type: type, status, offset, limit: 50 })}`);
+  const invFilters = [F.customer, F.from, F.to];
+  const [fv, setF, clearF] = useUrlFilters(invFilters);
+  const list = useLoad<any>(`/api/invoices${qs({ q, doc_type: type, status, offset, limit: 50, ...fv })}`);
+  React.useEffect(() => setOffset(0), [JSON.stringify(fv), type, status]);
   return <Page title="Invoices" actions={can("invoices:write") && <Btn kind="primary" onClick={() => setCreating(true)}>+ New invoice / note</Btn>}>
     <ListSummary name="invoices" icon="file" />
     <div className="toolbar"><Search value={q} onChange={setQ} placeholder="Invoice no / customer" />
       <select value={type} onChange={(e) => setType(e.target.value)}><option value="">All documents</option>{Object.entries(DOC_TYPES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select>
       <select value={status} onChange={(e) => setStatus(e.target.value)}><option value="">All statuses</option>{["Issued", "Partly Paid", "Paid", "Adjusted", "Cancelled"].map((s) => <option key={s}>{s}</option>)}</select></div>
+    <FilterBar specs={invFilters} values={fv} set={setF} clear={clearF} />
     <Table cols={[{ key: "invoice_no", label: "No" }, { key: "doc_type", label: "Type", render: (r) => DOC_TYPES[r.doc_type] }, { key: "invoice_date", label: "Date", type: "date" }, { key: "billing_name", label: "Customer" }, { key: "charge_mechanism", label: "GST" }, { key: "taxable_value", label: "Taxable", type: "money" }, { key: "total", label: "Total", type: "money" }, { key: "balance", label: "Balance", type: "money" }, { key: "due_date", label: "Due", type: "date" }, { key: "status", label: "Status", type: "badge" }]}
       rows={list.data?.items || []} onRow={(r) => setSp({ id: String(r.id) })} />
     <Pager total={list.data?.total || 0} limit={50} offset={offset} onChange={setOffset} />

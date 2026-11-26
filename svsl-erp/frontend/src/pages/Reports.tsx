@@ -32,7 +32,12 @@ export default function Reports() {
   const [sp, setSp] = useSearchParams();
   const list = useLoad<any[]>("/api/reports");
   const key = sp.get("r") || "";
-  const [p, setP] = useState<any>({ start: fyStart(), end: today() });
+  // filters can come from the address, e.g. /reports?r=customer_statement&customer_id=3 (links from the search box)
+  const [p, setP] = useState<any>(() => {
+    const init: any = { start: fyStart(), end: today() };
+    sp.forEach((v, k) => { if (k !== "r") init[k] = /_id$/.test(k) ? Number(v) : v; });
+    return init;
+  });
   const [data, setData] = useState<any>(null);
   const [err, setErr] = useState<string | null>(null);
   const [chart, setChart] = useState(true);

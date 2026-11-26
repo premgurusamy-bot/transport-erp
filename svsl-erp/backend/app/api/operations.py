@@ -90,7 +90,7 @@ def list_lr(request: Request, db: Session = Depends(get_db), user: CurrentUser =
     if p.get("q"):
         s = f"%{p['q']}%"
         q = q.filter(or_(Consignment.lr_no.ilike(s), Consignment.consignor_name.ilike(s), Consignment.consignee_name.ilike(s), Consignment.vehicle_no.ilike(s), Consignment.eway_bill_no.ilike(s), Consignment.customer_invoice_no.ilike(s)))
-    for f in ("customer_id", "trip_id", "vehicle_id"):
+    for f in ("customer_id", "trip_id", "vehicle_id", "driver_id", "route_id"):
         if p.get(f):
             q = q.filter(getattr(Consignment, f) == int(p[f]))
     if p.get("status"):
@@ -276,7 +276,7 @@ def _trip_out(db: Session, t: Trip, full: bool = False) -> dict:
 def list_trips(request: Request, db: Session = Depends(get_db), user: CurrentUser = Depends(require("trips:read"))):
     p = request.query_params
     q = db.query(Trip)
-    for f in ("customer_id", "vehicle_id", "driver_id"):
+    for f in ("customer_id", "vehicle_id", "driver_id", "route_id"):
         if p.get(f):
             q = q.filter(getattr(Trip, f) == int(p[f]))
     if p.get("stage"):

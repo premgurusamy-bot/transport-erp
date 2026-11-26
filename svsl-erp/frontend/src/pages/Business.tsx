@@ -4,6 +4,7 @@ import { api, can, qs } from "../lib/api";
 import { dt, inr, monthStart, today } from "../lib/format";
 import ResourcePage, { ListSummary } from "../components/ResourcePage";
 import { Badge, Btn, Card, Field, Kpi, Modal, Page, RefSelect, Table, Tabs, download, run, toast, useLoad, useLookup } from "../components/ui";
+import { F, FilterBar, useUrlFilters } from "../components/filters";
 
 // ------------------------------------------------------------------ warehouse
 function Scanner({ onCode }: { onCode: (c: string) => void }) {
@@ -104,7 +105,9 @@ export function WarehouseMasters() {
 // ------------------------------------------------------------------ purchase
 export function Purchase() {
   const [tab, setTab] = useState("Vendor bills");
-  const bills = useLoad<any[]>(tab === "Vendor bills" ? "/api/vendor-bills" : null);
+  const billFilters = [F.vendor, F.vehicle, F.from, F.to];
+  const [fv, setF, clearF] = useUrlFilters(billFilters);
+  const bills = useLoad<any[]>(tab === "Vendor bills" ? `/api/vendor-bills${qs(fv)}` : null);
   const pos = useLoad<any[]>(tab === "Purchase orders" ? "/api/purchase-orders" : null);
   const grns = useLoad<any[]>(tab === "Goods receipts" ? "/api/goods-receipts" : null);
   const [bill, setBill] = useState<any>(null);
@@ -113,11 +116,12 @@ export function Purchase() {
   const [pay, setPay] = useState<any>(null);
   const cats = ["Diesel / Fuel", "Spare Parts", "Tyres", "Batteries", "Workshop / Repairs", "Vehicle Dealer", "Insurance", "Office", "Vehicle Owner (Attached)", "Transporter", "Other"];
   return <Page title="Purchase & vendor bills" actions={can("purchase:write") && <>
-    <ListSummary name="vendor_bills" icon="cart" />
     <Btn onClick={() => setPo({ po_date: today(), lines: [{ description: "", qty: 1, uom: "NOS", rate: "", gst_rate: 18 }] })}>+ Purchase order</Btn>
     <Btn kind="primary" onClick={() => setBill({ bill_date: today(), lines: [{ description: "", amount: "", gst_rate: 18 }], itc_eligible: true })}>+ Vendor bill</Btn>
     {can("accounts:write") && <Btn onClick={() => setPay({ date: today(), mode: "Bank" })}>Pay vendor</Btn>}</>}>
+    <ListSummary name="vendor_bills" icon="cart" />
     <Tabs tabs={["Vendor bills", "Purchase orders", "Goods receipts"]} value={tab} onChange={setTab} />
+    {tab === "Vendor bills" && <FilterBar specs={billFilters} values={fv} set={setF} clear={clearF} />}
     {tab === "Vendor bills" && <Table cols={[{ key: "entry_no", label: "Entry" }, { key: "bill_no", label: "Bill no" }, { key: "bill_date", label: "Date", type: "date" }, { key: "vendor", label: "Vendor" }, { key: "category", label: "Category" }, { key: "taxable_value", label: "Taxable", type: "money" }, { key: "total", label: "Total", type: "money" }, { key: "balance", label: "Balance", type: "money" }, { key: "due_date", label: "Due", type: "date" }, { key: "status", label: "Status", type: "badge" },
       { key: "x", label: "", render: (b) => b.status === "Unpaid" && can("accounts:cancel") ? <Btn small kind="ghost" onClick={async () => { const r = prompt("Reason for cancelling this bill?"); if (r && await run(() => api.post(`/api/vendor-bills/${b.id}/cancel`, { reason: r }), "Cancelled")) bills.reload(); }}>Cancel</Btn> : null }]} rows={bills.data || []} />}
     {tab === "Purchase orders" && <Table cols={[{ key: "po_no", label: "PO" }, { key: "po_date", label: "Date", type: "date" }, { key: "vendor", label: "Vendor" }, { key: "category", label: "Category" }, { key: "total", label: "Total", type: "money" }, { key: "status", label: "Status", type: "badge" },

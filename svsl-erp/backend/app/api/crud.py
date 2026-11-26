@@ -173,8 +173,14 @@ def apply(db: Session, res: Resource, obj, data: dict, user: CurrentUser, is_new
             raise AppError(f"{info.get('label') or key} is required")
 
 
-def _query(db: Session, res: Resource, params: dict):
+def _hidden(res: Resource, user: CurrentUser | None) -> set[str]:
+    """Fields this user may not see: they can't be used to filter or sort either (that would reveal the values)."""
+    return {f for f, perm in res.restricted.items() if user is None or not user.can(perm)}
+
+
+def _query(db: Session, res: Resource, params: dict, user: CurrentUser | None = None):
     m = res.model
+    hidden = _hidden(res, user)
     stmt = select(m)
     cols = {c.name: c for c in m.__table__.columns}
     q = (params.get("q") or "").strip()
@@ -182,6 +188,8 @@ def _query(db: Session, res: Resource, params: dict):
         stmt = stmt.where(or_(*[func.cast(cols[f], String).ilike(f"%{q}%") for f in res.search if f in cols]))
     for k, v in params.items():
         if k in cols and k not in ("q",) and v not in (None, ""):
+            if k in hidden:
+                raise AppError("You do not have permission to filter on this field", 403)
             try:
                 stmt = stmt.where(cols[k] == _coerce(cols[k], v))
             except AppError:
@@ -211,7 +219,7 @@ def get_res(name: str, user: CurrentUser, write: bool = False, lookup: bool = Fa
 def meta(name: str, user: CurrentUser = Depends(get_current_user)):
     res = get_res(name, user)
     can_write = user.can(res.write_perm or f"{res.perm}:write")
-    return {"name": name, "title": res.title or name.replace("_", " ").title(), "label": res.label, "fields": field_meta(res, user),
+    return {"name": name, "title": res.title or name.replace("_", " ").title(), "label": res.label, "fields": field_meta(res, user), "date_field": res.date_field,
             "can_create": res.creatable and can_write, "can_update": res.updatable and can_write,
             "can_delete": can_write and (res.deletable or hasattr(res.model, "is_active")), "soft_delete": hasattr(res.model, "is_active") and not res.deletable}
 
@@ -276,7 +284,7 @@ def summary(name: str, db: Session = Depends(get_db), user: CurrentUser = Depend
 def list_items(name: str, request: Request, db: Session = Depends(get_db), user: CurrentUser = Depends(get_current_user)):
     params = dict(request.query_params)
     res = get_res(name, user, lookup=bool(params.get("lookup")))
-    stmt = _query(db, res, params)
+    stmt = _query(db, res, params, user)
     m = res.model
     if params.get("lookup"):
         cols = {c.name: c for c in m.__table__.columns}
@@ -288,7 +296,7 @@ def list_items(name: str, request: Request, db: Session = Depends(get_db), user:
     total = db.execute(select(func.count()).select_from(stmt.subquery())).scalar()
     sort = params.get("sort") or res.default_sort
     desc = sort.startswith("-")
-    sc = m.__table__.columns.get(sort.lstrip("-"))
+    sc = m.__table__.columns.get(sort.lstrip("-")) if sort.lstrip("-") not in _hidden(res, user) else None
     if sc is None:
         sc = m.__table__.columns["id"]
     limit = min(int(params.get("limit") or 100), 1000)

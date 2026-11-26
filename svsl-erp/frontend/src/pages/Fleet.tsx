@@ -3,6 +3,7 @@ import { api, can, qs } from "../lib/api";
 import { dt, inr, today } from "../lib/format";
 import ResourcePage, { ListSummary } from "../components/ResourcePage";
 import { Badge, Btn, Card, Field, Kpi, Modal, Page, RefSelect, Table, Tabs, run, toast, useLoad } from "../components/ui";
+import { F, FilterBar, useUrlFilters } from "../components/filters";
 
 export function Fuel() {
   const [tab, setTab] = useState("Diesel entries");
@@ -41,13 +42,16 @@ export function Fuel() {
 
 export function Maintenance() {
   const [tab, setTab] = useState("Jobs");
-  const jobs = useLoad<any[]>(tab === "Jobs" ? "/api/maintenance/jobs" : null);
+  const jobFilters = [F.vehicle, F.vendor, { key: "status", label: "Status", type: "select" as const, options: ["Open", "Completed", "Cancelled"] }, F.from, F.to];
+  const [fv, setF, clearF] = useUrlFilters(jobFilters);
+  const jobs = useLoad<any[]>(tab === "Jobs" ? `/api/maintenance/jobs${qs(fv)}` : null);
   const due = useLoad<any[]>(tab === "Due" ? "/api/maintenance/due" : null);
   const [nj, setNj] = useState<any>(null);
   const [cj, setCj] = useState<any>(null);
   return <Page title="Maintenance" actions={can("maintenance:write") && <Btn kind="primary" onClick={() => setNj({ date_in: today(), category: "Preventive Service", job_type: "Preventive", vehicle_off_road: true })}>+ Job card</Btn>}>
     {tab === "Jobs" && <ListSummary name="maintenance_jobs" icon="wrench" />}
     <Tabs tabs={["Jobs", "Due", "Schedules"]} value={tab} onChange={setTab} />
+    {tab === "Jobs" && <FilterBar specs={jobFilters} values={fv} set={setF} clear={clearF} />}
     {tab === "Jobs" && <Table cols={[{ key: "job_no", label: "Job" }, { key: "vehicle", label: "Vehicle" }, { key: "category", label: "Category" }, { key: "job_type", label: "Type" }, { key: "date_in", label: "In", type: "date" }, { key: "date_out", label: "Out", type: "date" }, { key: "odometer", label: "Km", type: "number" }, { key: "total_amount", label: "Total", type: "money" }, { key: "status", label: "Status", type: "badge" },
       { key: "x", label: "", render: (j) => j.status === "Open" && can("maintenance:write") ? <Btn small kind="primary" onClick={() => setCj({ job: j, parts: [{ name: "", qty: 1, rate: "" }], labour_amount: "", gst_amount: "", date_out: today(), payment_mode: "Vendor Credit" })}>Complete</Btn> : null }]} rows={jobs.data || []} />}
     {tab === "Due" && <Table cols={[{ key: "vehicle", label: "Vehicle" }, { key: "task", label: "Task" }, { key: "due", label: "Due at" }, { key: "overdue", label: "", render: (r) => r.overdue ? <span className="badge bad">Overdue</span> : <span className="badge warn">Due soon</span> }]} rows={due.data || []} empty="No service due" />}
