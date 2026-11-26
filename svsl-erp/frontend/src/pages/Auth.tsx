@@ -44,6 +44,24 @@ export function Login() {
   </div>;
 }
 
+/** About & licences: the open-source components the app is built with, and their licence texts. */
+function AboutCard() {
+  const [text, setText] = useState<string | null>(null);
+  const [q, setQ] = useState("");
+  const open = async () => {
+    try { const r = await fetch("/third-party-licenses.txt"); setText(r.ok ? await r.text() : "The licence file is not available on this server."); } catch { setText("The licence file could not be loaded."); }
+  };
+  const shown = text && q ? text.split(/\n-{20,}\n/).filter((b) => b.toLowerCase().includes(q.toLowerCase())).join("\n" + "-".repeat(78) + "\n") : text;
+  return <Card title="About & licences" actions={text ? <a className="small" href="/third-party-licenses.txt" target="_blank" rel="noreferrer">Open as file</a> : null}>
+    <p><b>SVL ERP</b> version 1.0.0 – Transport & Logistics ERP for Sree Venkateswara Logistics.</p>
+    <p className="small muted">This software uses open-source components (for example React, FastAPI, SQLAlchemy, PostgreSQL, ReportLab, Electron and Capacitor). They belong to their authors and are used under their licences, whose full texts are listed here.</p>
+    {text === null ? <Btn onClick={open}>Show third-party licences</Btn> : <>
+      <input type="search" placeholder="Search a component…" value={q} onChange={(e) => setQ(e.target.value)} style={{ width: "100%", marginBottom: 8 }} />
+      <pre className="mono small" style={{ maxHeight: 420, overflow: "auto", whiteSpace: "pre-wrap", background: "var(--panel-2)", padding: 12, borderRadius: 8, border: "1px solid var(--line)" }}>{shown}</pre>
+    </>}
+  </Card>;
+}
+
 export function Profile() {
   const first = location.search.includes("first=1");
   const nav = useNavigate();
@@ -83,6 +101,7 @@ export function Profile() {
       <Table cols={[{ key: "created_at", label: "Signed in", type: "datetime" }, { key: "last_seen_at", label: "Last active", type: "datetime" }, { key: "ip", label: "IP" }, { key: "user_agent", label: "Device" },
         { key: "x", label: "", render: (s) => s.current ? <b>This device</b> : <Btn small onClick={async () => { await run(() => api.del(`/api/auth/sessions/${s.full_id}`), "Signed out"); sessions.reload(); }}>Sign out</Btn> }]} rows={sessions.data || []} />
     </Card>
+    <AboutCard />
   </Page>;
 }
 

@@ -79,22 +79,31 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+      - name: Third-party licence notices (generated from what this build ships)
+        env:
+          PYTHONIOENCODING: utf-8
+        run: |
+          pip install -r svsl-erp/backend/requirements.txt pyinstaller
+          cd svsl-erp/frontend
+          npm ci
+          cd ..
+          python scripts/third_party_notices.py
       - name: Build web app
         working-directory: svsl-erp/frontend
-        run: |
-          npm ci
-          npm run build
+        run: npm run build
       - name: Build bundled ERP server (PyInstaller)
         working-directory: svsl-erp/backend
-        run: |
-          pip install -r requirements.txt pyinstaller
-          pyinstaller --noconfirm svsl-server.spec
+        run: pyinstaller --noconfirm svsl-server.spec
       - name: Download PostgreSQL 16 (portable binaries)
         shell: pwsh
         run: |
           Invoke-WebRequest $env:PG_ZIP -OutFile pg.zip
           Expand-Archive pg.zip -DestinationPath pgtmp
           $pg = "pgtmp/pgsql"
+          # keep the licence files that come with the PostgreSQL binaries (installed in resources\pgsql\licenses)
+          New-Item -ItemType Directory -Force "$pg/licenses" | Out-Null
+          Get-ChildItem -Path pgtmp -Recurse -File | Where-Object { $_.Name -match '(?i)licen[cs]e|copying|copyright' -and $_.FullName -notmatch 'pgAdmin' } | ForEach-Object { Copy-Item $_.FullName "$pg/licenses/$($_.Directory.Name)-$($_.Name)" -ErrorAction SilentlyContinue }
+          Write-Host "PostgreSQL licence files kept: $((Get-ChildItem "$pg/licenses").Count)"
           Remove-Item -Recurse -Force "$pg/pgAdmin 4", "$pg/doc", "$pg/include", "$pg/StackBuilder", "$pg/symbols" -ErrorAction SilentlyContinue
           # app-local Visual C++ runtime so the database also starts on PCs without the redistributable
           foreach ($d in "vcruntime140.dll", "vcruntime140_1.dll", "msvcp140.dll") { if (-not (Test-Path "$pg/bin/$d")) { Copy-Item "C:/Windows/System32/$d" "$pg/bin/" } }
