@@ -201,11 +201,11 @@ export function Gauge({ value, label, sub }: { value: number | null; label?: str
   const [nx, ny] = pt(v ?? 0, R - 26);
   const tone = v === null ? "var(--c7)" : v >= 85 ? "var(--c3)" : v >= 70 ? "var(--c2)" : "var(--bad)";
   return <div className="gauge-box">
-    <svg viewBox="0 0 200 128" className="chart" style={{ maxWidth: 260 }} role="img" aria-label={`${label || ""} ${v ?? "no data"}%`}>
+    <svg viewBox="0 0 200 150" className="chart" style={{ maxWidth: 260 }} role="img" aria-label={`${label || ""} ${v ?? "no data"}%`}>
       <path d={arc(0, 100)} stroke="var(--muted-bg)" strokeWidth={w} fill="none" strokeLinecap="round" />
       {v !== null && v > 0 && <path d={arc(0, v)} stroke={tone} strokeWidth={w} fill="none" strokeLinecap="round" />}
       {v !== null && <><line x1={cx} y1={cy} x2={nx} y2={ny} stroke="var(--ink)" strokeWidth="3" strokeLinecap="round" /><circle cx={cx} cy={cy} r="6" fill="var(--ink)" /></>}
-      <text x={cx} y={cy + 26} textAnchor="middle" className="gauge-v">{v === null ? "–" : `${v}%`}</text>
+      <text x={cx} y={cy + 44} textAnchor="middle" className="gauge-v">{v === null ? "–" : `${v}%`}</text>
     </svg>
     {label && <div className="muted small" style={{ marginTop: -2 }}>{label}</div>}
     {sub && <div className="muted tiny">{sub}</div>}

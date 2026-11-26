@@ -155,8 +155,14 @@ export function Backup() {
     fd.append("keep_users", String(restore.keep_users !== false));
     if (restore.file) fd.append("file", restore.file); else fd.append("backup_id", String(restore.id));
     const r: any = await run(() => api.form("/api/backups/restore", fd));
-    if (r) { toast.ok(`Restored ${r.restored_tables} tables (${r.rows} rows). Safety backup: ${r.pre_restore_backup}`); setRestore(null); reload(); }
+    if (r) { toast.ok(r.sample ? `Sample data loaded (${r.rows} rows). Your users, company profile and settings were kept.` : `Restored ${r.restored_tables} tables (${r.rows} rows). Safety backup: ${r.pre_restore_backup}`); setRestore(null); reload(); setTimeout(() => window.location.reload(), 1500); }
   };
+  const [reset, setReset] = useState<any>(null);
+  const doReset = async () => {
+    const r: any = await run(() => api.post("/api/system/factory-reset", { confirm: reset.confirm, password: reset.password }));
+    if (r) { toast.ok(`Factory reset done: ${r.deleted_rows} records deleted. Safety backup: ${r.pre_reset_backup}`); setReset(null); reload(); setTimeout(() => window.location.reload(), 1500); }
+  };
+  const isSample = !!(restore?.file?.name || restore?.name || "").toUpperCase().includes("SAMPLE");
   return <Page title="Backup" actions={can("backup:write") && <><Btn kind="primary" onClick={async () => { const r: any = await run(() => api.post("/api/backups", { include_files: true })); if (r) { toast.ok(`Backup ${r.status}: ${r.file_name}`); reload(); } }}>Backup now</Btn>
     <Btn onClick={() => download("/api/export/all")}>Export all data (Excel)</Btn>{can("backup:restore") && <Btn kind="danger" onClick={() => setRestore({ keep_users: true })}>Restore from file</Btn>}</>}>
     <p className="muted small">Each backup is a verified ZIP (every table as JSON with SHA-256 checksums + uploaded documents) and, when PostgreSQL tools are installed, a pg_dump file. Copy backups to another disk / cloud storage regularly. Automatic daily backups are configured in Settings → Backup.</p>
@@ -165,9 +171,28 @@ export function Backup() {
         <Btn small kind="ghost" onClick={async () => { const r: any = await run(() => api.post(`/api/backups/${b.id}/verify`)); if (r) r.ok ? toast.ok("Backup verified") : toast.err(r.problems.join("; ")); reload(); }}>Verify</Btn>{can("backup:restore") && <Btn small kind="danger" onClick={() => setRestore({ id: b.id, name: b.file_name, keep_users: true })}>Restore</Btn>}</div> }]} rows={data || []} />
     {restore && <Modal title="Restore database" onClose={() => setRestore(null)} footer={<Btn kind="danger" disabled={restore.confirm !== "RESTORE"} onClick={doRestore}>Restore</Btn>}>
       <div className="warn-box">All business data will be replaced by the backup. An automatic safety backup is taken first. Users, roles, backup history and the audit trail are kept.</div>
+      {isSample && <div className="calc">This is a <b>sample data</b> file (DEMO customers, vehicles, trips, invoices and accounts for training). Your users, passwords, company profile and settings are always kept. Remove the sample later with <b>Factory reset</b>.</div>}
       {restore.id ? <p>Backup: <b>{restore.name}</b></p> : <Field label="Backup file (.zip)"><input type="file" accept=".zip" onChange={(e) => setRestore({ ...restore, file: e.target.files?.[0] })} /></Field>}
       <Field label="Keep current users & roles"><input type="checkbox" checked={restore.keep_users} onChange={(e) => setRestore({ ...restore, keep_users: e.target.checked })} /></Field>
       <Field label="Type RESTORE to confirm"><input value={restore.confirm || ""} onChange={(e) => setRestore({ ...restore, confirm: e.target.value })} /></Field>
+    </Modal>}
+    {can("backup:restore") && <Card title="Sample data & factory reset">
+      <div className="grid2" style={{ marginBottom: 0 }}>
+        <div>
+          <h4 style={{ marginTop: 0 }}>Try the ERP with sample data</h4>
+          <p className="small">Download <b>SVL_ERP_SAMPLE_DATA.zip</b> (on the same download page as the installer) and load it with <b>Restore from file</b>. It contains three months of DEMO customers, vehicles, drivers, trips, LRs, invoices, receipts, maintenance and payroll. Your users, passwords, company profile and settings are kept.</p>
+        </div>
+        <div>
+          <h4 style={{ marginTop: 0 }}>Factory reset</h4>
+          <p className="small">Deletes <b>all</b> customers, vehicles, drivers, vendors, trips, LRs, invoices, vouchers, stock, payroll and uploaded documents – for example after training with sample data. Kept: users and roles, company profile, settings and document layouts, GST treatments, compliance rules, message templates, backup history and the audit trail. A full backup is taken first, so a reset can be undone with Restore.</p>
+          <Btn kind="danger" onClick={() => setReset({})}>Factory reset…</Btn>
+        </div>
+      </div>
+    </Card>}
+    {reset && <Modal title="Factory reset" onClose={() => setReset(null)} footer={<><Btn onClick={() => setReset(null)}>Cancel</Btn><Btn kind="danger" disabled={reset.confirm !== "RESET" || !reset.password} onClick={doReset}>Delete all business data</Btn></>}>
+      <div className="error-box"><b>All business data will be deleted.</b> Masters, transactions, accounts and uploaded documents are removed; users, company profile and settings are kept. An automatic backup is taken first.</div>
+      <Field label="Your password"><input type="password" autoComplete="current-password" value={reset.password || ""} onChange={(e) => setReset({ ...reset, password: e.target.value })} /></Field>
+      <Field label="Type RESET to confirm"><input value={reset.confirm || ""} onChange={(e) => setReset({ ...reset, confirm: e.target.value })} /></Field>
     </Modal>}
   </Page>;
 }

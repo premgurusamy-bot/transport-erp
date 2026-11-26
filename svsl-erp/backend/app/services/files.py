@@ -79,6 +79,7 @@ def read_version(ver: DocumentVersion) -> bytes:
 # ------------------------------------------------------------------ backup
 
 SKIP_ON_RESTORE_KEEP_USERS = {"users", "roles", "user_sessions", "login_history"}
+SAMPLE_KEEP = {"company", "app_settings"}  # restoring a sample backup keeps the company profile and settings
 
 
 def backups_dir() -> Path:
@@ -95,11 +96,15 @@ def _alembic_revision(db: Session) -> str | None:
         return None
 
 
-def create_backup(db: Session, user, kind: str = "manual", include_files: bool = True, note: str | None = None) -> BackupRecord:
+def create_backup(db: Session, user, kind: str = "manual", include_files: bool = True, note: str | None = None, sample: bool = False) -> BackupRecord:
     ts = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
-    name = f"SVL_ERP_BACKUP_{ts}_{kind}.zip"
+    name = f"SVL_ERP_SAMPLE_DATA_{ts}.zip" if sample else f"SVL_ERP_BACKUP_{ts}_{kind}.zip"
     path = backups_dir() / name
     manifest = {"app": "SVL ERP", "app_version": APP_VERSION, "created_at": datetime.now(timezone.utc).isoformat(), "kind": kind, "alembic_revision": _alembic_revision(db), "tables": {}}
+    if sample:
+        # restoring a sample replaces business data only: the restoring server keeps its own users, company profile and settings
+        manifest["sample"] = True
+        manifest["note"] = "DEMO sample data for training. Restoring it replaces all business data; users, company profile and settings are kept."
     total_rows = 0
     with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as z:
         for table in Base.metadata.sorted_tables:
@@ -198,12 +203,14 @@ def restore_backup(db: Session, user, path: Path, keep_users: bool = True) -> di
         manifest = json.loads(z.read("manifest.json"))
         all_tables = Base.metadata.sorted_tables
         # backup history and the audit trail are append-only: keep the current ones (unless empty, e.g. a new server)
-        kept_names = (SKIP_ON_RESTORE_KEEP_USERS if keep_users else set()) | {"backup_records", "audit_logs", "user_sessions"}
+        if manifest.get("sample"):
+            keep_users = True  # a sample never replaces the people who can sign in, the company profile or settings
+        kept_names = (SKIP_ON_RESTORE_KEEP_USERS if keep_users else set()) | {"backup_records", "audit_logs", "user_sessions"} | (SAMPLE_KEEP if manifest.get("sample") else set())
         kept: dict[str, list[dict]] = {}
         for t in all_tables:
             if t.name in kept_names:
                 kept[t.name] = [dict(r._mapping) for r in db.execute(t.select())]
-        kept_names = {n for n in kept_names if kept.get(n) or n == "user_sessions" or (n in SKIP_ON_RESTORE_KEEP_USERS and keep_users)}
+        kept_names = {n for n in kept_names if kept.get(n) or n == "user_sessions" or (n in SKIP_ON_RESTORE_KEEP_USERS and keep_users) or (n in SAMPLE_KEEP and manifest.get("sample"))}
         counts = {}
         try:
             names = ", ".join(f'"{t.name}"' for t in all_tables)
@@ -218,6 +225,8 @@ def restore_backup(db: Session, user, path: Path, keep_users: bool = True) -> di
                             for fk, ref in (("branch_id", "branches"), ("customer_id", "customers"), ("driver_id", "drivers")):
                                 if r.get(fk) and r[fk] not in existing_ids.get(ref, set()):
                                     r[fk] = None
+                                    if fk != "branch_id":
+                                        r["is_active"] = False  # a portal / driver login whose customer or driver is gone
                     clean = rows
                 else:
                     if t.name not in manifest["tables"]:
@@ -246,4 +255,52 @@ def restore_backup(db: Session, user, path: Path, keep_users: bool = True) -> di
             target = fdir / fname
             if not target.exists():
                 target.write_bytes(z.read(f"files/{fname}"))
-    return {"restored_tables": len(counts), "rows": sum(counts.values()), "pre_restore_backup": pre.file_name}
+    return {"restored_tables": len(counts), "rows": sum(counts.values()), "pre_restore_backup": pre.file_name, "sample": bool(manifest.get("sample"))}
+
+
+# ------------------------------------------------------------------ factory reset
+
+# Kept by a factory reset: who can sign in, the company profile and settings (incl. document layouts and message
+# set-up), backup history, the audit trail and configuration the administrator may have reviewed (GST treatments,
+# statutory due dates, message templates, leave types, departments, statutory registers, account groups).
+RESET_KEEP = {"users", "roles", "user_sessions", "login_history", "backup_records", "audit_logs", "company", "app_settings", "gst_treatments",
+              "compliance_rules", "notification_templates", "leave_types", "departments", "statutory_registers", "account_groups"}
+
+
+def factory_reset(db: Session, user) -> dict:
+    """Delete all business data (masters and transactions), keeping users, company profile and settings.
+
+    A full verified backup is taken first, so a reset can be undone with Restore. Rows are deleted table by table in
+    dependency order (never TRUNCATE ... CASCADE), so nothing outside the list above can be removed by accident.
+    """
+    from ..models import User
+    from ..seed import bootstrap
+
+    pre = create_backup(db, user, "pre_reset", include_files=True, note="Automatic backup before factory reset")
+    db.commit()
+    tables = [t for t in Base.metadata.sorted_tables if t.name not in RESET_KEEP]
+    counts: dict[str, int] = {}
+    try:
+        for u in db.query(User):  # logins linked to customers / drivers that are about to be deleted
+            if u.customer_id or u.driver_id:
+                u.is_active = False
+            u.customer_id = u.driver_id = u.branch_id = None
+        db.flush()
+        for t in reversed(tables):
+            counts[t.name] = db.execute(t.delete()).rowcount or 0
+        for t in tables:
+            cols = {c.name: c for c in t.columns}
+            if "id" in cols and cols["id"].primary_key and isinstance(cols["id"].type, Integer):
+                db.execute(text(f"SELECT setval(pg_get_serial_sequence('\"{t.name}\"', 'id'), 1, false)"))
+        bootstrap(db)  # system ledgers, document numbering, compliance calendar for the current year
+        log(db, user, "factory_reset", "system", None, None, {"deleted_rows": sum(counts.values()), "tables": len([c for c in counts.values() if c]), "pre_reset_backup": pre.file_name})
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+    removed = 0
+    for f in files_dir().iterdir():  # uploaded documents belonged to the deleted records (they are inside the backup)
+        if f.is_file():
+            f.unlink()
+            removed += 1
+    return {"deleted_rows": sum(counts.values()), "deleted_files": removed, "pre_reset_backup": pre.file_name}

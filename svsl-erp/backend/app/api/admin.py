@@ -412,6 +412,20 @@ async def restore(confirm: str = Form(...), backup_id: int | None = Form(None), 
     return result
 
 
+@router.post("/system/factory-reset")
+def factory_reset(data: dict, db: Session = Depends(get_db), user: CurrentUser = Depends(require("backup:restore"))):
+    """Delete all business data (e.g. after training with sample data). Users, company profile and settings are kept."""
+    from ..core.security import verify_password
+    from ..models import User
+
+    if (data or {}).get("confirm") != "RESET":
+        raise AppError("Type RESET to confirm")
+    me = db.get(User, user.id)
+    if not me or not verify_password(str((data or {}).get("password") or ""), me.password_hash):
+        raise AppError("Your password is not correct", 403)
+    return files.factory_reset(db, user)
+
+
 # ------------------------------------------------------------------ document layouts
 
 @router.get("/layouts")

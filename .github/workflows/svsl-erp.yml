@@ -41,6 +41,17 @@ jobs:
           psql postgresql://postgres:postgres@localhost:5432/postgres -c "CREATE DATABASE svsl_migrate"
           DATABASE_URL=postgresql+psycopg://postgres:postgres@localhost:5432/svsl_migrate alembic upgrade head
           DATABASE_URL=postgresql+psycopg://postgres:postgres@localhost:5432/svsl_migrate alembic check
+      - name: Build the sample-data backup (DEMO data, loaded with Admin → Backup → Restore from file)
+        run: |
+          psql postgresql://postgres:postgres@localhost:5432/postgres -c "CREATE DATABASE svsl_sample"
+          mkdir -p "$RUNNER_TEMP/sample-files" "$RUNNER_TEMP/sample-backups"
+          DATABASE_URL=postgresql+psycopg://postgres:postgres@localhost:5432/svsl_sample STORAGE_DIR="$RUNNER_TEMP/sample-files" BACKUP_DIR="$RUNNER_TEMP/sample-backups" \
+            RUN_SCHEDULER=false SECRET_KEY=sample-build-key-0123456789-0123456789-0123456789 python svsl_server.py sample-backup SVL_ERP_SAMPLE_DATA.zip
+      - uses: actions/upload-artifact@v4
+        if: github.event_name != 'pull_request'
+        with:
+          name: SVL-ERP-Sample-Data
+          path: svsl-erp/backend/SVL_ERP_SAMPLE_DATA.zip
 
   frontend:
     runs-on: ubuntu-latest
@@ -170,7 +181,7 @@ jobs:
           path: svsl-erp/mobile/SVL-ERP.apk
 
   release:
-    needs: [windows-installer, android-apk]
+    needs: [backend, windows-installer, android-apk]
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     steps:
@@ -187,7 +198,9 @@ jobs:
           body: |
             **Windows:** download `SVL-ERP-Setup-1.0.0.exe` and run it on the main office computer (it includes the database and server).
             **Android:** download `SVL-ERP.apk` on the phone and install it (allow "Install unknown apps" when asked), then enter the address shown on the office computer under Help → Phone connection.
+            **Sample data:** `SVL_ERP_SAMPLE_DATA.zip` – three months of DEMO data for training. Load it with Admin → Backup → Restore from file (your users, company profile and settings are kept); remove it with Admin → Backup → Factory reset.
             Built from commit ${{ github.sha }}.
           files: |
             out/*.exe
             out/*.apk
+            out/*.zip

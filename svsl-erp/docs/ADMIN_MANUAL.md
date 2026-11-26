@@ -84,6 +84,21 @@ configured and has a *Send test* button.
 See DEPLOYMENT.md. *Backup* screen: Backup now, download ZIP / pg_dump, Verify, Restore (type RESTORE).
 *Export all data* gives one Excel workbook with every table (secrets excluded).
 
+## Sample data & factory reset
+* **Sample data:** every release includes `SVL_ERP_SAMPLE_DATA.zip` – three months of clearly marked DEMO customers, vehicles
+  (state code 00), drivers, trips, LRs, invoices, receipts, maintenance, stock and payroll, with balanced books. Load it with
+  **Admin → Backup → Restore from file** and type RESTORE. Restoring a sample replaces all business data, but always keeps
+  your users and passwords, company profile and settings. An automatic backup is taken first.
+  To build the file yourself on an empty database: `svsl-server sample-backup SVL_ERP_SAMPLE_DATA.zip` (or
+  `python svsl_server.py sample-backup …` in `backend/`).
+* **Factory reset** (Admin → Backup → Factory reset…; needs the *Restore backups* permission, your password and typing RESET)
+  deletes all customers, vehicles, drivers, vendors, routes, trips, LRs, invoices, vouchers and ledgers, stock, HR/payroll
+  records and uploaded documents. It keeps users and roles, the company profile, settings and document layouts, GST
+  treatments, compliance rules, message templates, leave types, departments, statutory registers, account groups, backup
+  history and the audit trail; the system ledgers, document numbering and this year's compliance calendar are recreated.
+  A full verified backup is taken first, so a reset can be undone with Restore. The reset is recorded in the audit trail.
+  Portal and driver logins linked to deleted customers/drivers are disabled.
+
 ## Audit
 
 *Audit trail* records every create / update / cancel / amend / post / restore / login-related admin action with
