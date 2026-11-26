@@ -44,3 +44,39 @@ def test_trip_and_lr_lookups_are_read_only(client, admin):
         assert client.post(f"/api/r/{name}", json={}, headers=admin).status_code == 404
         assert client.put(f"/api/r/{name}/1", json={}, headers=admin).status_code == 404
         assert client.delete(f"/api/r/{name}/1", headers=admin).status_code == 404
+
+
+def test_list_summaries_and_dashboards(client, admin):
+    from app.api.crud import REGISTRY
+
+    for name, res in REGISTRY.items():
+        r = client.get(f"/api/r/{name}/summary", headers=admin)
+        if res.lookup_only:
+            from app.api.crud import STATS
+
+            assert r.status_code == (200 if name in STATS else 404), name
+            continue
+        assert r.status_code == 200, f"{name}: {r.text}"
+        s = r.json()
+        assert s["total"] >= 0
+        if "by" in s:
+            assert sum(c["count"] for c in s["by"]["counts"]) <= s["total"]
+    # restricted fields are never used for the breakdown
+    assert client.get("/api/r/employees/summary", headers=admin).json().get("by", {}).get("field") not in ("basic", "hra")
+
+    d = client.get("/api/dashboard", headers=admin).json()
+    for k in ("prev", "on_time", "utilization_pct", "open_trips", "delayed_trips", "ongoing", "maintenance_due"):
+        assert k in d, k
+    a = client.get("/api/accounts/summary", headers=admin).json()
+    assert [b["bucket"] for b in a["ar_ageing"]] == ["Not due", "0-30", "31-60", "61-90", "90+"]
+    assert {"billing", "purchases", "receipts", "payments"} <= set(a["compare"])
+    assert a["fy"]["trend"] and {"month", "income", "expenses", "net"} <= set(a["fy"]["trend"][0])
+
+
+def test_summaries_for_workflow_screens(client, admin):
+    from app.api.crud import STATS
+
+    for name in STATS:
+        r = client.get(f"/api/r/{name}/summary", headers=admin)
+        assert r.status_code == 200, f"{name}: {r.text}"
+        assert "total" in r.json()

@@ -4,6 +4,7 @@ import { openExternal } from "../lib/native";
 import { api, can, qs } from "../lib/api";
 import { dt, inr, monthStart, today } from "../lib/format";
 import { Badge, Btn, Card, Field, Modal, Page, Pager, ReasonModal, RefSelect, Search, Table, download, run, toast, useLoad, useLookup } from "../components/ui";
+import { ListSummary } from "../components/ResourcePage";
 
 const DOC_TYPES: Record<string, string> = { tax_invoice: "Tax invoice", proforma: "Proforma invoice", debit_note: "Debit note", credit_note: "Credit note", bill_of_supply: "Bill of supply", advance_receipt: "Advance receipt voucher" };
 const BASES: Record<string, string> = { lr: "LR-wise", consolidated: "Consolidated (many LRs)", trip: "Trip-wise", monthly_contract: "Monthly contract", warehouse: "Warehouse storage & handling", manual: "Manual lines" };
@@ -108,6 +109,7 @@ export default function Invoices() {
   const [creating, setCreating] = useState(false);
   const list = useLoad<any>(`/api/invoices${qs({ q, doc_type: type, status, offset, limit: 50 })}`);
   return <Page title="Invoices" actions={can("invoices:write") && <Btn kind="primary" onClick={() => setCreating(true)}>+ New invoice / note</Btn>}>
+    <ListSummary name="invoices" icon="file" />
     <div className="toolbar"><Search value={q} onChange={setQ} placeholder="Invoice no / customer" />
       <select value={type} onChange={(e) => setType(e.target.value)}><option value="">All documents</option>{Object.entries(DOC_TYPES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select>
       <select value={status} onChange={(e) => setStatus(e.target.value)}><option value="">All statuses</option>{["Issued", "Partly Paid", "Paid", "Adjusted", "Cancelled"].map((s) => <option key={s}>{s}</option>)}</select></div>

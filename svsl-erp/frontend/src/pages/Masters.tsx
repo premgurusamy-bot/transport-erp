@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api, can } from "../lib/api";
 import { dt, fyStart, inr, today } from "../lib/format";
-import ResourcePage from "../components/ResourcePage";
+import ResourcePage, { ListSummary } from "../components/ResourcePage";
 import { Badge, Btn, Card, Field, Kpi, Modal, Page, RefSelect, Table, Tabs, download, run, useLoad } from "../components/ui";
 
 function CustomerDetail({ row }: { row: any }) {
@@ -163,6 +163,7 @@ export function Complaints() {
   const { data, reload } = useLoad<any[]>("/api/complaints");
   const [c, setC] = useState<any>(null);
   return <Page title="Complaints">
+    <ListSummary name="complaints" icon="message" />
     <Table cols={[{ key: "complaint_no", label: "No" }, { key: "created_at", label: "Date", type: "datetime" }, { key: "customer", label: "Customer" }, { key: "subject", label: "Subject" }, { key: "status", label: "Status", type: "badge" }]} rows={data || []} onRow={setC} />
     {c && <Modal title={c.complaint_no} onClose={() => setC(null)} footer={can("customers:write") && <Btn kind="primary" onClick={async () => { if (await run(() => api.put(`/api/complaints/${c.id}`, c), "Updated")) { setC(null); reload(); } }}>Save</Btn>}>
       <p><b>{c.subject}</b></p><p>{c.description}</p>

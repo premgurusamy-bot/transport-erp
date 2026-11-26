@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { api, can, qs } from "../lib/api";
 import { dt, label } from "../lib/format";
-import ResourcePage from "../components/ResourcePage";
+import ResourcePage, { ListSummary } from "../components/ResourcePage";
 import LayoutsEditor from "./Layouts";
 import { Badge, Btn, Card, Field, FieldInput, Modal, Page, RefSelect, Table, Tabs, download, run, toast, useLoad } from "../components/ui";
 
@@ -136,6 +136,7 @@ export function Audit() {
   const { data } = useLoad<any>(`/api/audit${qs({ ...f, limit: 300 })}`);
   const [v, setV] = useState<any>(null);
   return <Page title="Audit trail">
+    <ListSummary name="audit" icon="history" />
     <div className="toolbar">{["entity", "username", "action"].map((k) => <input key={k} placeholder={k} value={f[k]} onChange={(e) => setF({ ...f, [k]: e.target.value })} />)}<input type="date" value={f.from} onChange={(e) => setF({ ...f, from: e.target.value })} /><input type="date" value={f.to} onChange={(e) => setF({ ...f, to: e.target.value })} /></div>
     <Table dense cols={[{ key: "at", label: "When", type: "datetime" }, { key: "username", label: "User" }, { key: "action", label: "Action", type: "badge" }, { key: "entity", label: "Record" }, { key: "entity_id", label: "Id" }, { key: "reason", label: "Reason" }, { key: "ip", label: "IP" }]} rows={data?.items || []} onRow={setV} />
     {v && <Modal wide title={`${v.action} ${v.entity} #${v.entity_id}`} onClose={() => setV(null)}>

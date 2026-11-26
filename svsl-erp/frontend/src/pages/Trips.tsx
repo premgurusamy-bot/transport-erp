@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { api, can, qs } from "../lib/api";
 import { dt, inr, num, today } from "../lib/format";
 import { Badge, Btn, Card, Field, Kpi, Modal, Page, Pager, ReasonModal, RefSelect, Search, Table, Tabs, run, useLoad } from "../components/ui";
+import { Donut, Icon, Progress, StatCard } from "../components/charts";
 
 export const STAGES = ["Booked", "Vehicle Allocated", "Driver Allocated", "LR Generated", "Loading", "Dispatched", "In Transit", "Delivered", "POD Collected", "Closed", "Billed", "Settled"];
 const EXP_CATS = ["Diesel", "Toll", "Parking", "RTO / Check Post", "Loading", "Unloading", "Driver Bata", "Food", "Police / Fine", "Repair on Road", "Weighbridge", "Tyre Puncture", "Phone", "Other"];
@@ -120,6 +121,59 @@ function LocationTab({ id }: { id: number }) {
   </div>;
 }
 
+/** Trip progress (%) from its stage – used by the progress bars. */
+export function tripProgress(stage: string): number {
+  const P: Record<string, number> = { Booked: 0, "Vehicle Allocated": 8, "Driver Allocated": 14, "LR Generated": 22, Loading: 32, Dispatched: 45, "In Transit": 65, Delivered: 85, "POD Collected": 92, Closed: 100, Billed: 100, Settled: 100, Cancelled: 0 };
+  return P[stage] ?? 0;
+}
+const stageTone = (r: any) => (r.stage === "Cancelled" ? "bad" : r.delayed ? "bad" : tripProgress(r.stage) >= 100 ? undefined : "info") as any;
+
+/** Expanded trip row: stops from origin through every LR drop to the destination, plus a mini P&L. */
+function TripExpand({ id, onOpen }: { id: number; onOpen: () => void }) {
+  const nav = useNavigate();
+  const { data: t } = useLoad<any>(`/api/trips/${id}`);
+  if (!t) return <div className="trip-exp"><div className="skeleton" style={{ height: 140 }} /><div className="skeleton" style={{ height: 140 }} /></div>;
+  const delivered = (s: string) => ["Delivered", "POD Received", "Billed"].includes(s);
+  const stops: { name: string; place: string; lines: string[]; done: boolean }[] = [
+    { name: "Start", place: t.from_place, lines: [t.dispatched_at ? `Dispatched ${dt(t.dispatched_at)}` : t.planned_departure ? `Planned ${dt(t.planned_departure)}` : "Not dispatched", t.start_km != null ? `Odometer ${num(t.start_km)} km` : ""], done: !!t.dispatched_at },
+  ];
+  for (const l of t.lrs || []) {
+    if (l.status === "Cancelled") continue;
+    const points = l.delivery_points?.length ? l.delivery_points : [];
+    for (const dp of points) stops.push({ name: `Drop · ${l.lr_no}`, place: dp.consignee_name || "", lines: [dp.address, dp.delivered_at ? `Delivered ${dt(dp.delivered_at)}` : `${dp.packages || ""} pkgs ${dp.status}`], done: dp.status === "Delivered" || !!dp.delivered_at });
+    stops.push({ name: `Delivery · ${l.lr_no}`, place: l.consignee_name || l.to_place, lines: [l.to_place, delivered(l.status) ? `Delivered ${dt(l.delivered_at)}` : l.status], done: delivered(l.status) });
+  }
+  if (!(t.lrs || []).length) stops.push({ name: "Destination", place: t.to_place, lines: [t.expected_delivery_at ? `Expected ${dt(t.expected_delivery_at)}` : ""], done: !!t.delivered_at });
+  if (t.closed_at) stops.push({ name: "Closed", place: t.from_place === t.to_place ? t.from_place : "", lines: [dt(t.closed_at), t.end_km != null ? `Odometer ${num(t.end_km)} km` : ""], done: true });
+  const curIdx = stops.findIndex((s) => !s.done);
+  return <div className="trip-exp">
+    <div>
+      <div className="actions">
+        <Btn small kind="primary" onClick={onOpen}>Open trip</Btn>
+        {can("trips:write") && !["Closed", "Billed", "Settled", "Cancelled"].includes(t.stage) && <>
+          <Btn small onClick={() => nav(`/lr?new=1&trip_id=${t.id}`)}>+ LR</Btn>
+          <Btn small onClick={onOpen}>+ Expense</Btn>
+          <Btn small onClick={onOpen}>Update stage</Btn></>}
+      </div>
+      <div className="stops">
+        <div className="stops-h"><Badge v={t.stage} />{t.delayed && <span className="badge solid bad">Delayed</span>}<span className="muted">Planned <b>{t.route_km ? `${num(t.route_km)} km` : "–"}</b> · Actual <b>{t.pnl.km ? `${num(t.pnl.km)} km` : "–"}</b> · {(t.lrs || []).length} LR</span></div>
+        <div className="stop-line">{stops.map((s, i) => <div key={i} className={`stop ${s.done ? "done" : ""} ${i === curIdx ? "cur" : ""}`}>
+          <span className="dot" /><b>{s.name}</b><small><b style={{ fontSize: 12 }}>{s.place}</b>{s.lines.filter(Boolean).map((x, k) => <span key={k} style={{ display: "block" }}>{x}</span>)}</small>
+        </div>)}</div>
+      </div>
+    </div>
+    <div className="mini-pnl">
+      <b>Trip P&amp;L</b>
+      <div className="row"><span>Revenue</span><b>{inr(t.pnl.revenue)}</b></div>
+      <div className="row"><span>Expenses</span><b>{inr(t.pnl.expenses)}</b></div>
+      <div className="row"><span>Profit</span><b className={Number(t.pnl.profit) >= 0 ? "good" : "bad"}>{inr(t.pnl.profit)}</b></div>
+      <Progress pct={Math.max(0, Number(t.pnl.margin_pct || 0))} label={t.pnl.margin_pct ? `${t.pnl.margin_pct}% margin` : "margin –"} tone={Number(t.pnl.profit) < 0 ? "bad" : undefined} />
+      <div className="row"><span>Mileage</span><b>{t.pnl.kmpl ? `${t.pnl.kmpl} km/L` : "–"}</b></div>
+      <div className="row"><span>Customer</span><b style={{ textAlign: "right" }}>{t.customer_name}</b></div>
+    </div>
+  </div>;
+}
+
 export default function Trips() {
   const [sp, setSp] = useSearchParams();
   const [q, setQ] = useState("");
@@ -127,16 +181,44 @@ export default function Trips() {
   const [date, setDate] = useState("");
   const [offset, setOffset] = useState(0);
   const [creating, setCreating] = useState(false);
-  const list = useLoad<any>(`/api/trips${qs({ q, offset, limit: 50, ...(stage === "open" ? { open: 1 } : stage ? { stage } : {}), from: date, to: date })}`);
+  const [openRow, setOpenRow] = useState<number | null>(null);
+  const stats = useLoad<any>("/api/trips/stats");
+  const list = useLoad<any>(`/api/trips${qs({ q, offset, limit: 50, ...(stage === "open" ? { open: 1 } : stage === "delayed" ? { open: 1 } : stage ? { stage } : {}), from: date, to: date })}`);
+  const rows = (list.data?.items || []).filter((r: any) => stage !== "delayed" || r.delayed);
+  const st = stats.data;
+  const pick = (v: string) => { setStage(v); setOffset(0); };
   return <Page title="Trips" actions={can("trips:write") && <Btn kind="primary" onClick={() => setCreating(true)}>+ New trip</Btn>}>
+    {st && <div className="kpis four">
+      <StatCard icon="route" label="Open trips" value={st.open} onClick={() => pick("open")} foot={<>{st.by_stage["Booked"] || 0} booked · {st.by_stage["Loading"] || 0} loading</>} />
+      <StatCard icon="truck" label="On the road" value={st.on_road} tone="info" onClick={() => pick("In Transit")} foot={<>{st.by_stage["Dispatched"] || 0} dispatched · {st.by_stage["In Transit"] || 0} in transit</>} />
+      <StatCard icon="clock" label="Delayed" value={st.delayed} tone={st.delayed ? "bad" : "good"} onClick={() => pick("delayed")} foot={st.delayed ? "past expected delivery" : "all on schedule"} />
+      <StatCard icon="check" label="Completed this month" value={`${st.month_completed} / ${st.month_total}`} tone="good" foot={<>{st.awaiting_pod} awaiting POD</>} onClick={() => pick("Closed")} />
+    </div>}
     <div className="toolbar"><Search value={q} onChange={setQ} placeholder="Trip no, place…" />
-      <select value={stage} onChange={(e) => setStage(e.target.value)}><option value="open">Open trips</option><option value="">All</option>{[...STAGES, "Cancelled"].map((s) => <option key={s}>{s}</option>)}</select>
-      <label className="row gap small">Daily trip sheet <input type="date" value={date} onChange={(e) => setDate(e.target.value)} /></label></div>
-    <Table cols={[{ key: "trip_no", label: "Trip" }, { key: "trip_date", label: "Date", type: "date" }, { key: "customer_name", label: "Customer" }, { key: "from_place", label: "From" }, { key: "to_place", label: "To" }, { key: "vehicle_no", label: "Vehicle" }, { key: "driver_name", label: "Driver" }, { key: "stage", label: "Stage", type: "badge" }, { key: "delayed", label: "Delay", render: (r) => r.delayed ? <span className="badge bad">Delayed</span> : "" }]}
-      rows={list.data?.items || []} onRow={(r) => setSp({ id: String(r.id) })} />
+      <select value={stage} onChange={(e) => pick(e.target.value)}><option value="open">Open trips</option><option value="delayed">Delayed</option><option value="">All</option>{[...STAGES, "Cancelled"].map((s) => <option key={s}>{s}</option>)}</select>
+      <label className="row gap small">Daily trip sheet <input type="date" value={date} onChange={(e) => setDate(e.target.value)} /></label>
+      <div className="grow" /><span className="muted small">{list.data?.total ?? ""} trip(s)</span></div>
+    <div className="table-wrap"><table className="tbl">
+      <thead><tr><th style={{ width: 34 }} /><th>Trip</th><th>Status</th><th>Vehicle</th><th>Driver</th><th>Customer</th><th>Route</th><th>Progress</th><th>Date</th><th>ETA</th></tr></thead>
+      <tbody>
+        {rows.length === 0 && <tr><td colSpan={10} className="empty">{list.loading ? "Loading…" : "No trips"}</td></tr>}
+        {rows.map((r: any) => <React.Fragment key={r.id}>
+          <tr className={`click ${openRow === r.id ? "open" : ""}`} onClick={() => setOpenRow(openRow === r.id ? null : r.id)}>
+            <td><button className={`chev ${openRow === r.id ? "on" : ""}`} aria-label="Show stops"><Icon name="chevron" size={16} /></button></td>
+            <td className="nw"><b>{r.trip_no}</b></td>
+            <td>{r.delayed ? <span className="badge solid bad">Delayed</span> : <Badge v={r.stage} />}</td>
+            <td className="nw">{r.vehicle_no}</td><td>{r.driver_name}</td><td>{r.customer_name}</td>
+            <td>{r.from_place} → {r.to_place}</td>
+            <td style={{ minWidth: 120 }}><Progress pct={tripProgress(r.stage)} tone={stageTone(r)} /></td>
+            <td className="nw">{dt(r.trip_date)}</td><td className="nw">{r.expected_delivery_at ? dt(r.expected_delivery_at).slice(0, 16) : ""}</td>
+          </tr>
+          {openRow === r.id && <tr><td colSpan={10} className="exp-cell"><TripExpand id={r.id} onOpen={() => setSp({ id: String(r.id) })} /></td></tr>}
+        </React.Fragment>)}
+      </tbody>
+    </table></div>
     <Pager total={list.data?.total || 0} limit={50} offset={offset} onChange={setOffset} />
-    {creating && <NewTrip onClose={() => setCreating(false)} onDone={(t) => { setCreating(false); list.reload(); setSp({ id: String(t.id) }); }} />}
-    {sp.get("id") && <TripDetail id={Number(sp.get("id"))} onClose={() => { setSp({}); list.reload(); }} />}
+    {creating && <NewTrip onClose={() => setCreating(false)} onDone={(t) => { setCreating(false); list.reload(); stats.reload(); setSp({ id: String(t.id) }); }} />}
+    {sp.get("id") && <TripDetail id={Number(sp.get("id"))} onClose={() => { setSp({}); list.reload(); stats.reload(); }} />}
   </Page>;
 }
 
@@ -146,8 +228,17 @@ export function FleetBoard() {
   if (!data) return null;
   const groups: Record<string, any[]> = {};
   data.vehicles.forEach((v: any) => (groups[v.status] = groups[v.status] || []).push(v));
+  const freeDrivers = data.drivers.filter((d: any) => d.status === "Available").length;
   return <Page title="Fleet board">
-    <div className="kpis">{Object.entries(groups).map(([s, vs]) => <Kpi key={s} label={s} value={vs.length} />)}<Kpi label="Drivers available" value={data.drivers.filter((d: any) => d.status === "Available").length} /></div>
+    <div className="grid2">
+      <Card title="Fleet status"><Donut center={data.vehicles.length} centerSub="vehicles" data={Object.entries(groups).map(([s, vs]) => ({ label: s, value: vs.length, color: ({ Available: "var(--c3)", "On Trip": "var(--c1)", Maintenance: "var(--c2)", Breakdown: "var(--bad)" } as any)[s] }))} /></Card>
+      <div className="kpis" style={{ gridTemplateColumns: "repeat(2, minmax(0, 1fr))", alignContent: "start", marginBottom: 0 }}>
+        <StatCard icon="truck" label="On trip" value={(groups["On Trip"] || []).length} tone="info" foot={data.vehicles.length ? <>{Math.round(100 * (groups["On Trip"] || []).length / data.vehicles.length)}% utilisation</> : null} />
+        <StatCard icon="check" label="Available" value={(groups["Available"] || []).length} tone="good" foot="ready for a trip" />
+        <StatCard icon="wrench" label="In workshop" value={(groups["Maintenance"] || []).length + (groups["Breakdown"] || []).length} tone="warn" foot={`${(groups["Breakdown"] || []).length} breakdown`} />
+        <StatCard icon="user" label="Drivers free" value={`${freeDrivers} / ${data.drivers.length}`} foot="available drivers" />
+      </div>
+    </div>
     <div className="board">{data.vehicles.map((v: any) => <div key={v.id} className={`vcard ${v.status.replace(/\s/g, "").toLowerCase()}`} onClick={() => v.trip ? nav(`/trips?id=${v.trip.id}`) : nav("/vehicles")}>
       <b>{v.registration_no}</b><small>{v.vehicle_type}</small><Badge v={v.status} />{v.trip && <small>{v.trip.trip_no} · {v.trip.stage} → {v.trip.to}</small>}
     </div>)}</div>

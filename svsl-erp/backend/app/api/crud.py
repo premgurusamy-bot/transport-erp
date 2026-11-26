@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal, InvalidOperation
 from typing import Any, Callable
 
@@ -214,6 +214,62 @@ def meta(name: str, user: CurrentUser = Depends(get_current_user)):
     return {"name": name, "title": res.title or name.replace("_", " ").title(), "label": res.label, "fields": field_meta(res, user),
             "can_create": res.creatable and can_write, "can_update": res.updatable and can_write,
             "can_delete": can_write and (res.deletable or hasattr(res.model, "is_active")), "soft_delete": hasattr(res.model, "is_active") and not res.deletable}
+
+
+SUMMARY_PREFERENCE = ["status", "stage", "category", "kind", "vehicle_type", "party_type", "ownership", "employment_status", "doc_type", "type", "frequency"]
+
+# Screens whose records are not generic resources (they have their own workflows) still get summary cards:
+# name -> (model path, permission module, breakdown field, amount field to total per group, date field for "last 30 days")
+STATS = {
+    "lr": ("Consignment", "lr", "status", "total_freight", "created_at"),
+    "invoices": ("Invoice", "invoices", "status", "total", "created_at"),
+    "vouchers": ("Voucher", "accounts", "voucher_type", "total", "created_at"),
+    "vendor_bills": ("VendorBill", "purchase", "status", "total", "created_at"),
+    "purchase_orders": ("PurchaseOrder", "purchase", "status", None, "created_at"),
+    "maintenance_jobs": ("MaintenanceJob", "maintenance", "status", "total_amount", "created_at"),
+    "stock_docs": ("StockDoc", "warehouse", "doc_type", None, "created_at"),
+    "complaints": ("Complaint", "customers", "status", None, "created_at"),
+    "audit": ("AuditLog", "audit", "action", None, "at"),
+}
+
+
+def _summarize(db: Session, m, title: str, field_name: str | None, restricted: dict, amount: str | None = None, date_col: str = "created_at") -> dict:
+    cols = {c.name: c for c in m.__table__.columns}
+    total = db.execute(select(func.count()).select_from(m)).scalar()
+    out: dict = {"total": total, "title": title}
+    if "is_active" in cols:
+        out["active"] = db.execute(select(func.count()).select_from(m).where(cols["is_active"].is_(True))).scalar()
+    if date_col in cols:
+        since = datetime.now(timezone.utc) - timedelta(days=30)
+        out["added_30d"] = db.execute(select(func.count()).select_from(m).where(cols[date_col] >= since)).scalar()
+    if field_name is None:
+        field_name = next((f for f in SUMMARY_PREFERENCE if f in cols), None)
+    if field_name is None:
+        field_name = next((c.name for c in m.__table__.columns if (c.info or {}).get("options") and c.name not in restricted), None)
+    if field_name and field_name in cols and field_name not in restricted:
+        col = cols[field_name]
+        parts = [col, func.count()] + ([func.coalesce(func.sum(cols[amount]), 0)] if amount and amount in cols else [])
+        stmt = select(*parts).select_from(m)
+        if "is_active" in cols:
+            stmt = stmt.where(cols["is_active"].is_(True))
+        rows = db.execute(stmt.group_by(col).order_by(func.count().desc())).all()
+        out["by"] = {"field": field_name, "label": (col.info or {}).get("label") or field_name.replace("_", " ").title(),
+                     "counts": [{"label": str(r[0]) if r[0] not in (None, "") else "Not set", "count": r[1], **({"amount": jsonable(r[2])} if len(r) > 2 else {})} for r in rows]}
+    return out
+
+
+@router.get("/{name}/summary")
+def summary(name: str, db: Session = Depends(get_db), user: CurrentUser = Depends(get_current_user)):
+    """Counts for the cards above a list: total, active/inactive, added in the last 30 days and a breakdown by status."""
+    if name in STATS and (name not in REGISTRY or REGISTRY[name].lookup_only):
+        model_name, perm, field_name, amount, date_col = STATS[name]
+        if not user.can(f"{perm}:read"):
+            raise AppError(f"You do not have permission ({perm}:read)", 403)
+        from .. import models
+
+        return _summarize(db, getattr(models, model_name), name, field_name, {}, amount, date_col)
+    res = get_res(name, user)
+    return _summarize(db, res.model, res.title or name, None, res.restricted)
 
 
 @router.get("/{name}")

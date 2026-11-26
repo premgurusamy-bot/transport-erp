@@ -74,6 +74,35 @@ def dashboard(start: str | None = None, end: str | None = None, customer_id: int
         trend.insert(0, {"month": m.strftime("%b %y"), "income": r2(p["totals"]["Direct Incomes"] + p["totals"]["Indirect Incomes"]), "expenses": r2(p["totals"]["Direct Expenses"] + p["totals"]["Indirect Expenses"]), "profit": p["net_profit"]})
         m = (m - timedelta(days=1)).replace(day=1)
     top = rep.customer_profitability(db, s, e)["rows"][:5]
+    # previous period of the same length, for "vs last period" comparisons
+    pe = s - timedelta(days=1)
+    ps = pe - (e - s)
+    ppnl = acc.profit_and_loss(db, ps, pe)
+    ptq = tq.filter(Trip.trip_date.between(ps, pe))
+    prev = {
+        "start": ps, "end": pe,
+        "income": r2(ppnl["totals"]["Direct Incomes"] + ppnl["totals"]["Indirect Incomes"]), "expenses": r2(ppnl["totals"]["Direct Expenses"] + ppnl["totals"]["Indirect Expenses"]), "net_profit": ppnl["net_profit"],
+        "trips": ptq.count(), "completed_trips": ptq.filter(Trip.stage.in_(["Closed", "Billed", "Settled"])).count(),
+        "billing": inv_sum(iq.filter(Invoice.invoice_date.between(ps, pe)), "taxable_value"),
+        "fuel": r2(D(db.execute(select(func.coalesce(func.sum(FuelEntry.amount), 0)).where(FuelEntry.entry_date.between(ps, pe))).scalar())),
+    }
+    # on-time delivery: trips delivered in the period that had an expected delivery time
+    lo = datetime(s.year, s.month, s.day, tzinfo=timezone.utc) - timedelta(hours=5, minutes=30)
+    hi = datetime(e.year, e.month, e.day, tzinfo=timezone.utc) + timedelta(days=1) - timedelta(hours=5, minutes=30)
+    delivered = tq.filter(Trip.delivered_at >= lo, Trip.delivered_at < hi, Trip.expected_delivery_at.is_not(None)).all()
+    on_time = sum(1 for t in delivered if t.delivered_at <= t.expected_delivery_at)
+    now = datetime.now(timezone.utc)
+    open_q = db.query(Trip).filter(Trip.stage.in_(ops.OPEN_STAGES))
+    if customer_id:
+        open_q = open_q.filter(Trip.customer_id == customer_id)
+    open_trips = open_q.order_by(Trip.id.desc()).all()
+    delayed = [t for t in open_trips if t.expected_delivery_at and not t.delivered_at and t.expected_delivery_at < now]
+    moving = [t for t in open_trips if t.stage in ("Loading", "Dispatched", "In Transit", "Delivered")]
+    vnames = {v.id: v.registration_no for v in db.query(Vehicle.id, Vehicle.registration_no)}
+    dnames = {d.id: d.name for d in db.query(Driver.id, Driver.name)}
+    ongoing = [{"id": t.id, "trip_no": t.trip_no, "vehicle_no": vnames.get(t.vehicle_id), "driver_name": dnames.get(t.driver_id), "from_place": t.from_place, "to_place": t.to_place,
+                "stage": t.stage, "eta": t.expected_delivery_at, "delayed": bool(t.expected_delivery_at and not t.delivered_at and t.expected_delivery_at < now)} for t in (moving or open_trips)[:8]]
+    total_active = vq.count()
     alerts = people.current_alerts(db)
     drivers = dict(db.query(Driver.status, func.count(Driver.id)).filter(Driver.is_active.is_(True), Driver.employment_status == "Active").group_by(Driver.status).all())
     return jsonable({
@@ -96,6 +125,11 @@ def dashboard(start: str | None = None, end: str | None = None, customer_id: int
         "unbilled_lrs": lrq.filter(Consignment.invoice_id.is_(None), Consignment.status.in_(["Delivered", "POD Received"])).count(),
         "expiring_documents": [a for a in alerts if a["category"] in ("Vehicle documents", "Driver licence", "Documents")][:15],
         "alerts": alerts[:25], "alert_count": len(alerts), "trend": trend, "top_customers": top,
+        "prev": prev,
+        "on_time": {"delivered": len(delivered), "on_time": on_time, "pct": round(100 * on_time / len(delivered), 1) if delivered else None},
+        "utilization_pct": round(100 * status_counts.get("On Trip", 0) / total_active, 1) if total_active else 0,
+        "open_trips": len(open_trips), "delayed_trips": len(delayed), "ongoing": ongoing,
+        "maintenance_due": sum(1 for a in alerts if a["category"] == "Maintenance"),
     })
 
 

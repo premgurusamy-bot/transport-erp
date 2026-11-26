@@ -5,6 +5,7 @@ from datetime import date, timedelta
 
 from fastapi import APIRouter, Depends, File, UploadFile
 from fastapi.responses import Response
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from ..core.audit import jsonable
@@ -93,7 +94,7 @@ def del_template(target: str, name: str, db: Session = Depends(get_db), user: Cu
 
 @router.get("/accounts/summary")
 def accounts_summary(db: Session = Depends(get_db), user: CurrentUser = Depends(require("accounts:read"))):
-    from ..models import Invoice, Voucher
+    from ..models import Invoice, VendorBill, Voucher
     from ..services import accounting as acc
 
     today = date.today()
@@ -127,12 +128,56 @@ def accounts_summary(db: Session = Depends(get_db), user: CurrentUser = Depends(
     p = acc.profit_and_loss(db, ms, today)
     overdue = db.query(Invoice).filter(Invoice.status.in_(["Issued", "Partly Paid"]), Invoice.due_date < today, Invoice.doc_type.in_(["tax_invoice", "bill_of_supply", "debit_note"])).count()
     recent = db.query(Voucher).order_by(Voucher.id.desc()).limit(12).all()
-    tb = acc.trial_balance(db, date(today.year if today.month >= 4 else today.year - 1, 4, 1), today)
+    fy_start = date(today.year if today.month >= 4 else today.year - 1, 4, 1)
+    tb = acc.trial_balance(db, fy_start, today)
+    # month-on-month figures (this month to date vs the whole of last month)
+    lm_end = ms - timedelta(days=1)
+    lm_start = lm_end.replace(day=1)
+
+    def vsum(vtype, a, b):
+        return r2(D(db.execute(select(func.coalesce(func.sum(Voucher.total), 0)).where(Voucher.voucher_type == vtype, Voucher.status == "Posted", Voucher.voucher_date.between(a, b))).scalar()))
+
+    def sales(a, b):
+        tot = ZERO
+        for i in db.query(Invoice).filter(Invoice.status != "Cancelled", Invoice.doc_type.in_(["tax_invoice", "bill_of_supply", "debit_note", "credit_note"]), Invoice.invoice_date.between(a, b)):
+            tot += D(i.total) * (-1 if i.doc_type == "credit_note" else 1)
+        return r2(tot)
+
+    def purchases(a, b):
+        return r2(D(db.execute(select(func.coalesce(func.sum(VendorBill.total), 0)).where(VendorBill.status != "Cancelled", VendorBill.bill_date.between(a, b))).scalar()))
+
+    buckets = ["Not due", "0-30", "31-60", "61-90", "90+"]
+
+    def ageing(kind):
+        tot = {b: ZERO for b in buckets}
+        for r in acc.ageing(db, kind, today):
+            tot[r["bucket"]] += D(r["balance"])
+        return [{"bucket": b, "amount": r2(tot[b])} for b in buckets]
+
+    import calendar
+
+    fy_trend, m = [], fy_start
+    while m <= today:
+        me = date(m.year, m.month, calendar.monthrange(m.year, m.month)[1])
+        mp = acc.profit_and_loss(db, m, min(me, today))
+        inc = r2(mp["totals"]["Direct Incomes"] + mp["totals"]["Indirect Incomes"])
+        exp = r2(mp["totals"]["Direct Expenses"] + mp["totals"]["Indirect Expenses"])
+        fy_trend.append({"month": m.strftime("%b"), "income": inc, "expenses": exp, "net": mp["net_profit"]})
+        m = me + timedelta(days=1)
+    fyp = acc.profit_and_loss(db, fy_start, today)
     return jsonable({
         "cash": cash, "banks": banks, "cash_total": r2(sum((x["balance"] for x in cash), ZERO)), "bank_total": r2(sum((x["balance"] for x in banks), ZERO)),
         "receivables": r2(recv), "payables": r2(pay), "overdue_invoices": overdue,
         "taxes": {k: r2(v) for k, v in taxes.items()} | {"gst_net_payable": r2(taxes["gst_output"] - taxes["gst_input"])},
         "month": {"income": r2(p["totals"]["Direct Incomes"] + p["totals"]["Indirect Incomes"]), "expenses": r2(p["totals"]["Direct Expenses"] + p["totals"]["Indirect Expenses"]), "net_profit": p["net_profit"]},
         "books_balanced": tb["balanced"],
+        "compare": {
+            "billing": {"this": sales(ms, today), "last": sales(lm_start, lm_end)},
+            "purchases": {"this": purchases(ms, today), "last": purchases(lm_start, lm_end)},
+            "receipts": {"this": vsum("Receipt", ms, today), "last": vsum("Receipt", lm_start, lm_end)},
+            "payments": {"this": vsum("Payment", ms, today), "last": vsum("Payment", lm_start, lm_end)},
+        },
+        "ar_ageing": ageing("customer"), "ap_ageing": ageing("supplier"),
+        "fy": {"start": fy_start, "income": r2(fyp["totals"]["Direct Incomes"] + fyp["totals"]["Indirect Incomes"]), "expenses": r2(fyp["totals"]["Direct Expenses"] + fyp["totals"]["Indirect Expenses"]), "net_profit": fyp["net_profit"], "trend": fy_trend},
         "recent": [{"id": v.id, "date": v.voucher_date, "no": v.voucher_no, "type": v.voucher_type, "narration": v.narration, "total": v.total, "status": v.status} for v in recent],
     })

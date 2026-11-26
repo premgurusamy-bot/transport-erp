@@ -260,6 +260,8 @@ def _trip_out(db: Session, t: Trip, full: bool = False) -> dict:
     exp = t.expected_delivery_at
     out["delayed"] = bool(exp and not t.delivered_at and exp < datetime.now(timezone.utc))
     if full:
+        r = db.get(Route, t.route_id) if t.route_id else None
+        out["route_km"] = jsonable(r.distance_km) if r else None
         out["lrs"] = [_lr_out(db, l) for l in ops.trip_lrs(db, t.id)]
         out["expenses"] = [jsonable({c.name: getattr(e, c.name) for c in TripExpense.__table__.columns}) for e in db.query(TripExpense).filter_by(trip_id=t.id).order_by(TripExpense.id)]
         out["events"] = [jsonable({"at": e.at, "stage": e.stage, "note": e.note, "odometer": e.odometer, "lat": e.lat, "lng": e.lng}) for e in db.query(TripEvent).filter_by(trip_id=t.id).order_by(TripEvent.id)]
@@ -290,6 +292,23 @@ def list_trips(request: Request, db: Session = Depends(get_db), user: CurrentUse
     total = q.count()
     rows = q.order_by(Trip.id.desc()).limit(min(int(p.get("limit") or 100), 1000)).offset(int(p.get("offset") or 0)).all()
     return {"total": total, "items": [_trip_out(db, t) for t in rows]}
+
+
+@router.get("/trips/stats")
+def trip_stats(db: Session = Depends(get_db), user: CurrentUser = Depends(require("trips:read"))):
+    """Counts for the cards above the trip list."""
+    today = date.today()
+    now = datetime.now(timezone.utc)
+    by_stage = dict(db.query(Trip.stage, func.count(Trip.id)).group_by(Trip.stage).all())
+    open_trips = db.query(Trip).filter(Trip.stage.in_(ops.OPEN_STAGES))
+    month = db.query(Trip).filter(Trip.trip_date >= today.replace(day=1), Trip.trip_date <= today, Trip.stage != "Cancelled")
+    return {
+        "by_stage": by_stage, "open": open_trips.count(),
+        "on_road": open_trips.filter(Trip.stage.in_(["Dispatched", "In Transit"])).count(),
+        "delayed": open_trips.filter(Trip.expected_delivery_at.is_not(None), Trip.delivered_at.is_(None), Trip.expected_delivery_at < now).count(),
+        "awaiting_pod": by_stage.get("Delivered", 0),
+        "month_total": month.count(), "month_completed": month.filter(Trip.stage.in_(["Closed", "Billed", "Settled"])).count(),
+    }
 
 
 @router.post("/trips")

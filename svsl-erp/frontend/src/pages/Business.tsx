@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { api, can, qs } from "../lib/api";
 import { dt, inr, monthStart, today } from "../lib/format";
-import ResourcePage from "../components/ResourcePage";
+import ResourcePage, { ListSummary } from "../components/ResourcePage";
 import { Badge, Btn, Card, Field, Kpi, Modal, Page, RefSelect, Table, Tabs, download, run, toast, useLoad, useLookup } from "../components/ui";
 
 // ------------------------------------------------------------------ warehouse
@@ -78,6 +78,7 @@ export function Warehouse() {
   const [form, setForm] = useState(false);
   const [lbl, setLbl] = useState<any>(null);
   return <Page title="Warehouse" actions={can("warehouse:write") && <Btn kind="primary" onClick={() => setForm(true)}>+ Inward / outward</Btn>}>
+    <ListSummary name="stock_docs" icon="warehouse" />
     <div className="toolbar"><RefSelect refName="warehouses" value={wh} onChange={setWh} placeholder="All godowns" /><RefSelect refName="customers" value={cust} onChange={setCust} placeholder="All owners" /></div>
     <Tabs tabs={["Stock", "Documents", "Labels"]} value={tab} onChange={setTab} />
     {tab === "Stock" && <Table cols={[{ key: "warehouse", label: "Godown" }, { key: "sku", label: "SKU" }, { key: "item", label: "Item" }, { key: "batch_no", label: "Batch" }, { key: "customer_id", label: "Owner", type: "ref", ref: "customers" }, { key: "qty_in", label: "In", type: "number" }, { key: "qty_out", label: "Out", type: "number" }, { key: "balance", label: "Balance", type: "number" }]} rows={stock.data || []} />}
@@ -112,6 +113,7 @@ export function Purchase() {
   const [pay, setPay] = useState<any>(null);
   const cats = ["Diesel / Fuel", "Spare Parts", "Tyres", "Batteries", "Workshop / Repairs", "Vehicle Dealer", "Insurance", "Office", "Vehicle Owner (Attached)", "Transporter", "Other"];
   return <Page title="Purchase & vendor bills" actions={can("purchase:write") && <>
+    <ListSummary name="vendor_bills" icon="cart" />
     <Btn onClick={() => setPo({ po_date: today(), lines: [{ description: "", qty: 1, uom: "NOS", rate: "", gst_rate: 18 }] })}>+ Purchase order</Btn>
     <Btn kind="primary" onClick={() => setBill({ bill_date: today(), lines: [{ description: "", amount: "", gst_rate: 18 }], itc_eligible: true })}>+ Vendor bill</Btn>
     {can("accounts:write") && <Btn onClick={() => setPay({ date: today(), mode: "Bank" })}>Pay vendor</Btn>}</>}>

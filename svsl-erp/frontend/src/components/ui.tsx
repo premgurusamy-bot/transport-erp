@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { api, ApiError, openFile } from "../lib/api";
 import { dt, inr, label as niceLabel, num } from "../lib/format";
 import { t } from "../lib/i18n";
+import { groupOf } from "../lib/nav";
 
 // ------------------------------------------------------------------ toast
 type ToastMsg = { id: number; text: string; kind: "ok" | "err" | "info" };
@@ -62,19 +63,20 @@ export function Btn({ kind = "default", small, ...p }: React.ButtonHTMLAttribute
 }
 
 export function Card({ title, actions, children, className }: { title?: React.ReactNode; actions?: React.ReactNode; children: React.ReactNode; className?: string }) {
-  return <section className={`card ${className || ""}`}>{(title || actions) && <header className="card-h"><h3>{title}</h3><div className="row gap">{actions}</div></header>}<div className="card-b">{children}</div></section>;
+  return <section className={`card ${className || ""}`}>{(title || actions) && <header className="card-h"><h3>{title}</h3><div className="row gap wrap">{actions}</div></header>}<div className="card-b">{children}</div></section>;
 }
 
-export function Page({ title, actions, children }: { title: string; actions?: React.ReactNode; children: React.ReactNode }) {
+export function Page({ title, actions, children, sub }: { title: string; actions?: React.ReactNode; children: React.ReactNode; sub?: React.ReactNode }) {
   useEffect(() => { document.title = `${title} – SVL ERP`; }, [title]);
-  return <div className="page"><div className="page-h"><h1>{t(title)}</h1><div className="row gap wrap">{actions}</div></div>{children}</div>;
+  const group = groupOf(window.location.pathname, window.location.search);
+  return <div className="page"><div className="page-h"><div>{group && group !== title && <div className="crumb">{t(group)} › {t(title)}</div>}<h1>{t(title)}</h1>{sub && <div className="muted small" style={{ marginTop: 3 }}>{sub}</div>}</div><div className="row gap wrap">{actions}</div></div>{children}</div>;
 }
 
 export function Kpi({ label, value, sub, tone, onClick }: { label: string; value: React.ReactNode; sub?: React.ReactNode; tone?: "good" | "bad" | "warn"; onClick?: () => void }) {
   return <div className={`kpi ${tone || ""} ${onClick ? "click" : ""}`} onClick={onClick}><div className="kpi-l">{t(label)}</div><div className="kpi-v">{value}</div>{sub && <div className="kpi-s">{sub}</div>}</div>;
 }
 
-const STATUS_TONE: Record<string, string> = {
+export const STATUS_TONE: Record<string, string> = {
   Available: "good", Active: "good", Paid: "good", Verified: "good", Acknowledged: "good", Closed: "muted", Settled: "good", Delivered: "good", "POD Received": "good", "POD Collected": "good", Completed: "good", Posted: "good", Generated: "good", Adjusted: "good", Approved: "good", sent: "good", Matched: "good",
   "On Trip": "info", "In Transit": "info", Dispatched: "info", Loading: "info", Loaded: "info", Billed: "info", Issued: "info", "Partly Paid": "warn", Open: "warn", Pending: "warn", Requested: "warn", Draft: "muted", "Filed - Awaiting Ack": "info",
   Maintenance: "warn", Breakdown: "bad", Cancelled: "bad", Failed: "bad", Corrupted: "bad", Rejected: "bad", Inactive: "muted", Sold: "muted", Superseded: "muted", Reversal: "muted", critical: "bad", warning: "warn", info: "info", failed: "bad", not_configured: "muted",
@@ -165,7 +167,7 @@ export function Table({ cols, rows, onRow, empty = "No records", totals, dense }
     <tbody>
       {rows.length === 0 && <tr><td colSpan={cols.length} className="empty">{empty}</td></tr>}
       {rows.map((r, i) => <tr key={r.id ?? i} onClick={onRow ? () => onRow(r) : undefined} className={onRow ? "click" : ""}>
-        {cols.map((c) => <td key={c.key} className={c.type === "money" || c.type === "number" ? "r" : ""}>{cell(r, c)}</td>)}
+        {cols.map((c) => <td key={c.key} className={c.type === "money" || c.type === "number" ? "r nw" : c.type === "date" || c.type === "datetime" || c.type === "badge" ? "nw" : ""}>{cell(r, c)}</td>)}
       </tr>)}
     </tbody>
     {totals && <tfoot><tr>{cols.map((c, i) => <td key={c.key} className={c.type === "money" || c.type === "number" ? "r" : ""}>{c.key in totals ? cell(totals, c) : i === 0 ? "Total" : ""}</td>)}</tr></tfoot>}

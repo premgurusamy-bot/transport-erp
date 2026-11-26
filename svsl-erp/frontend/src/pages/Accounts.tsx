@@ -2,7 +2,8 @@ import React, { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { api, can, qs } from "../lib/api";
 import { dt, fyStart, inr, today } from "../lib/format";
-import ResourcePage from "../components/ResourcePage";
+import ResourcePage, { ListSummary } from "../components/ResourcePage";
+import { Bars, change, Donut, short, StatCard } from "../components/charts";
 import { Badge, Btn, Card, Field, Kpi, Modal, Page, Pager, ReasonModal, RefSelect, Search, Table, Tabs, download, run, toast, useLoad } from "../components/ui";
 
 export function Vouchers() {
@@ -14,6 +15,7 @@ export function Vouchers() {
   const [creating, setCreating] = useState<string | false>(sp.get("new") || false);
   const list = useLoad<any>(`/api/vouchers${qs({ q, type, offset, limit: 50 })}`);
   return <Page title="Vouchers" actions={can("accounts:write") && <Btn kind="primary" onClick={() => setCreating("Journal")}>+ Voucher</Btn>}>
+    <ListSummary name="vouchers" icon="book" />
     <div className="toolbar"><Search value={q} onChange={setQ} placeholder="Voucher no / narration / reference" />
       <select value={type} onChange={(e) => setType(e.target.value)}><option value="">All types</option>{["Journal", "Payment", "Receipt", "Contra", "Purchase", "Sales", "Debit Note", "Credit Note"].map((t) => <option key={t}>{t}</option>)}</select></div>
     <Table cols={[{ key: "voucher_date", label: "Date", type: "date" }, { key: "voucher_no", label: "No" }, { key: "voucher_type", label: "Type" }, { key: "narration", label: "Narration" }, { key: "reference", label: "Ref" }, { key: "total", label: "Amount", type: "money" }, { key: "status", label: "Status", type: "badge" }]} rows={list.data?.items || []} onRow={(r) => setView(r.id)} />
@@ -145,6 +147,8 @@ export function Tally() {
 }
 
 
+const AGE_COLORS = ["var(--c6)", "var(--c3)", "var(--c4)", "var(--c1)", "var(--bad)"];
+
 export function AccountsHome() {
   const nav = useNavigate();
   const { data: d } = useLoad<any>("/api/accounts/summary");
@@ -160,15 +164,37 @@ export function AccountsHome() {
     <Btn onClick={() => nav("/vouchers?new=Payment")}>+ Expense payment</Btn>
     <Btn onClick={() => nav("/vouchers?new=Journal")}>+ Journal</Btn>
     <Btn onClick={() => nav("/vouchers?new=Contra")}>+ Contra (cash ↔ bank)</Btn></div>}>
+    {!d && <div className="kpis four">{[0, 1, 2, 3].map((i) => <div key={i} className="skeleton" style={{ height: 118 }} />)}</div>}
     {d && <>
+      <div className="kpis four">
+        <StatCard icon="file" label="Bills raised (sales)" value={short(d.compare.billing.this)} delta={change(d.compare.billing.this, d.compare.billing.last)} deltaText="vs last month" foot={!Number(d.compare.billing.last) ? "this month" : null} onClick={() => nav("/invoices")} />
+        <StatCard icon="cart" label="Bills received (purchase)" value={short(d.compare.purchases.this)} tone="warn" delta={change(d.compare.purchases.this, d.compare.purchases.last)} goodWhen="down" deltaText="vs last month" foot={!Number(d.compare.purchases.last) ? "this month" : null} onClick={() => nav("/purchase")} />
+        <StatCard icon="rupee" label="Payments received" value={short(d.compare.receipts.this)} tone="good" delta={change(d.compare.receipts.this, d.compare.receipts.last)} deltaText="vs last month" foot={!Number(d.compare.receipts.last) ? "this month" : null} onClick={() => nav("/receipts")} />
+        <StatCard icon="bank" label="Payments made" value={short(d.compare.payments.this)} tone="info" delta={change(d.compare.payments.this, d.compare.payments.last)} goodWhen="down" deltaText="vs last month" foot={!Number(d.compare.payments.last) ? "this month" : null} onClick={() => nav("/vendor-payments")} />
+      </div>
+      <div className="grid2">
+        <Card title="Accounts receivable ageing" actions={<a className="small" onClick={() => nav("/reports?r=customer_outstanding")}>Details</a>}>
+          <Donut center={short(d.receivables)} centerSub="receivable" fmt={(v) => inr(v)} data={d.ar_ageing.map((b: any, i: number) => ({ label: b.bucket === "Not due" ? "Not due" : `${b.bucket} days`, value: Number(b.amount), color: AGE_COLORS[i] }))} onSlice={() => nav("/reports?r=customer_bills")} />
+        </Card>
+        <Card title="Accounts payable ageing" actions={<a className="small" onClick={() => nav("/reports?r=supplier_outstanding")}>Details</a>}>
+          <Donut center={short(d.payables)} centerSub="payable" fmt={(v) => inr(v)} data={d.ap_ageing.map((b: any, i: number) => ({ label: b.bucket === "Not due" ? "Not due" : `${b.bucket} days`, value: Number(b.amount), color: AGE_COLORS[i] }))} onSlice={() => nav("/reports?r=supplier_bills")} />
+        </Card>
+      </div>
+      <div className="grid2">
+        <Card title="Profit and loss" actions={<span className="muted small">financial year from {dt(d.fy.start)}</span>}>
+          <Bars legend={false} labels={["Income", "Expenses", "Net profit / loss"]} series={[{ name: "This year", values: [Number(d.fy.income), -Number(d.fy.expenses), Number(d.fy.net_profit)], colors: ["var(--c4)", "var(--c1)", Number(d.fy.net_profit) >= 0 ? "var(--c3)" : "var(--bad)"] }]} />
+          <div className="legend"><span><i className="sw" style={{ background: "var(--c4)" }} />Income {inr(d.fy.income)}</span><span><i className="sw" style={{ background: "var(--c1)" }} />Expenses {inr(d.fy.expenses)}</span><span className={Number(d.fy.net_profit) >= 0 ? "good" : "bad"}>Net {inr(d.fy.net_profit)}</span></div>
+        </Card>
+        <Card title="Month by month" actions={<span className="muted small">this financial year</span>}>
+          <Bars labels={d.fy.trend.map((m: any) => m.month)} series={[{ name: "Income", values: d.fy.trend.map((m: any) => Number(m.income)) }, { name: "Expenses", values: d.fy.trend.map((m: any) => Number(m.expenses)), color: "var(--c4)" }, { name: "Net", values: d.fy.trend.map((m: any) => Number(m.net)), color: "var(--c3)" }]} />
+        </Card>
+      </div>
       <div className="kpis">
         <Kpi label="Cash in hand" value={inr(d.cash_total)} onClick={() => nav("/reports?r=cash_book")} />
         <Kpi label="Bank balance" value={inr(d.bank_total)} sub={`${d.banks.length} account(s)`} onClick={() => nav("/bank")} />
         <Kpi label="Receivables" value={inr(d.receivables)} sub={`${d.overdue_invoices} invoice(s) overdue`} tone={d.overdue_invoices ? "warn" : undefined} onClick={() => nav("/reports?r=customer_outstanding")} />
         <Kpi label="Payables" value={inr(d.payables)} onClick={() => nav("/reports?r=supplier_outstanding")} />
-        <Kpi label="Income this month" value={inr(d.month.income)} />
-        <Kpi label="Expenses this month" value={inr(d.month.expenses)} />
-        <Kpi label="Net profit this month" value={inr(d.month.net_profit)} tone={Number(d.month.net_profit) >= 0 ? "good" : "bad"} />
+        <Kpi label="Net profit this month" value={inr(d.month.net_profit)} tone={Number(d.month.net_profit) >= 0 ? "good" : "bad"} sub={`Income ${short(d.month.income)} · Expenses ${short(d.month.expenses)}`} />
         <Kpi label="GST payable (output − input)" value={inr(d.taxes.gst_net_payable)} sub={Number(d.taxes.rcm) ? `RCM ${inr(d.taxes.rcm)}` : ""} onClick={() => nav("/reports?r=gst_summary")} />
         <Kpi label="TDS payable" value={inr(d.taxes.tds_payable)} />
         <Kpi label="EPF / ESI / PT payable" value={inr(d.taxes.pf_esi_pt)} />

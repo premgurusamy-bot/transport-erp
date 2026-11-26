@@ -4,6 +4,7 @@ import { openExternal } from "../lib/native";
 import { api, can, qs } from "../lib/api";
 import { dt, inr, num, today } from "../lib/format";
 import { Badge, Btn, Card, Field, Modal, Page, Pager, ReasonModal, RefSelect, Search, Table, Tabs, download, run, toast, useLoad } from "../components/ui";
+import { ListSummary } from "../components/ResourcePage";
 
 const EMPTY_ITEM = { description: "", hsn: "", packages: "", package_type: "", quantity: "", uom: "NOS", weight_kg: "", value: "" };
 
@@ -182,6 +183,7 @@ export default function LRPage() {
   const list = useLoad<any>(`/api/lr${qs({ q, status, offset, limit: 50, trip_id: sp.get("trip_id") })}`);
   const open = sp.get("id");
   return <Page title="LR / Consignments" actions={can("lr:write") && !creating && <Btn kind="primary" onClick={() => setCreating(true)}>+ New LR</Btn>}>
+    <ListSummary name="lr" icon="file" />
     {creating ? <Card title="New lorry receipt"><LRForm initial={sp.get("trip_id") ? { trip_id: Number(sp.get("trip_id")) } : {}} onCancel={() => setCreating(false)} onDone={(lr) => { setCreating(false); list.reload(); setSp({ id: String(lr.id) }); }} /></Card> : <>
       <div className="toolbar"><Search value={q} onChange={setQ} placeholder="LR no, consignor, consignee, vehicle, e-way bill…" />
         <select value={status} onChange={(e) => setStatus(e.target.value)}><option value="">All statuses</option>{["Booked", "Loaded", "In Transit", "Delivered", "POD Received", "Billed", "Cancelled"].map((s) => <option key={s}>{s}</option>)}</select></div>

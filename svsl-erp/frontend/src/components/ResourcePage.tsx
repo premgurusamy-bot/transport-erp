@@ -1,7 +1,28 @@
 import React, { useEffect, useState } from "react";
 import { api, qs } from "../lib/api";
 import { t } from "../lib/i18n";
-import { Btn, cell, Col, ErrorBox, Meta, MetaForm, Modal, Page, Pager, Search, Table, invalidateLookup, run, useLoad } from "./ui";
+import { Btn, cell, Col, ErrorBox, Meta, MetaForm, Modal, Page, Pager, Search, STATUS_TONE, Table, invalidateLookup, run, useLoad } from "./ui";
+import { Breakdown, color, Icon, short, StatCard } from "./charts";
+import { iconOf } from "../lib/nav";
+
+const TONE_COLOR: Record<string, string> = { good: "var(--c3)", bad: "var(--bad)", warn: "var(--c2)", info: "var(--c1)", muted: "var(--c7)" };
+
+/** Summary cards shown above every list: total, active, added in 30 days and a breakdown by status/type. */
+export function ListSummary({ name, icon, reloadKey }: { name: string; icon?: string; reloadKey?: any }) {
+  const { data: s } = useLoad<any>(`/api/r/${name}/summary`, [reloadKey]);
+  if (!s) return <div className="summary"><div className="skeleton" style={{ height: 96 }} /><div className="skeleton" style={{ height: 96 }} /><div className="skeleton wide" style={{ height: 96 }} /></div>;
+  const hasAmount = s.by?.counts.some((c: any) => c.amount !== undefined);
+  let used = 0;
+  const items = (s.by?.counts || []).map((c: any) => {
+    const tone = STATUS_TONE[c.label];
+    return { label: c.label, value: c.count, color: tone ? TONE_COLOR[tone] : color(used++), sub: hasAmount && Number(c.amount) ? short(c.amount) : undefined };
+  });
+  return <div className="summary">
+    <StatCard icon={icon || iconOf(window.location.pathname) || "file"} label="Total records" value={s.total.toLocaleString("en-IN")} foot={s.active !== undefined ? <>{s.active.toLocaleString("en-IN")} active · {(s.total - s.active).toLocaleString("en-IN")} inactive</> : null} />
+    {s.added_30d !== undefined && <StatCard icon="calendar" label="Added in 30 days" value={s.added_30d.toLocaleString("en-IN")} tone="info" foot={s.total ? <>{Math.round((100 * s.added_30d) / s.total)}% of all records</> : null} />}
+    {s.by && items.length > 0 && <div className="stat wide"><div className="stat-h"><span className="stat-ic"><Icon name="pie" /></span><span>By {s.by.label.toLowerCase()}</span></div><Breakdown items={items} /></div>}
+  </div>;
+}
 
 type Props = {
   name: string;
@@ -13,6 +34,7 @@ type Props = {
   headerActions?: (reload: () => void) => React.ReactNode;
   defaults?: Record<string, any>;
   embedded?: boolean;
+  summary?: boolean;
 };
 
 function colFor(meta: Meta, key: string): Col {
@@ -22,7 +44,7 @@ function colFor(meta: Meta, key: string): Col {
   return { key, label: f.label, type: type as any, ref: f.ref };
 }
 
-export default function ResourcePage({ name, title, columns, filters = {}, rowActions, detail, headerActions, defaults = {}, embedded }: Props) {
+export default function ResourcePage({ name, title, columns, filters = {}, rowActions, detail, headerActions, defaults = {}, embedded, summary = true }: Props) {
   const meta = useLoad<Meta>(`/api/r/${name}/meta`);
   const [q, setQ] = useState("");
   const [offset, setOffset] = useState(0);
@@ -51,6 +73,7 @@ export default function ResourcePage({ name, title, columns, filters = {}, rowAc
   };
 
   const body = <>
+    {summary && <ListSummary name={name} reloadKey={list.data?.total} />}
     <div className="toolbar">
       <Search value={q} onChange={setQ} />
       {hasActive && <label className="row gap small"><input type="checkbox" checked={showInactive} onChange={(e) => setShowInactive(e.target.checked)} /> show inactive</label>}
