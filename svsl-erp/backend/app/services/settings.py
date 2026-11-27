@@ -33,6 +33,10 @@ DEFAULTS: dict[str, dict] = {
         "credit_limit_warn_pct": 90,
     },
     "payroll": {
+        "salary_posting": "per_person",  # per_person: "Prem Salary" ledgers under a group; single: one "Salaries & Wages" ledger
+        "staff_salary_group": "Salaries",
+        "driver_salary_group": "Driver Salaries",
+        "salary_ledger_format": "{name} Salary",
         "pf_employee_pct": 12,
         "pf_employer_pct": 12,
         "pf_wage_ceiling": 15000,

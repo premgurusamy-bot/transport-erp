@@ -77,9 +77,19 @@ books, ledgers, outstanding & ageing, and GST registers.
 **Vouchers** (journal, payment, receipt, contra – debit must equal credit), **Ledgers** (balances, click for the
 ledger statement with PDF/Excel), **Bank reconciliation** (import statement, match entries), **Tally export / import**.
 
+**Groups & ledgers** (Accounts › Groups & ledgers): the chart of accounts as a tree – main groups (fixed, as in Tally) ›
+your own groups (any depth) › ledgers, with the total of everything under each group. *+ Group* creates a group under any
+main group and moves the ledgers you tick into it (for example Indirect Expenses › **Salaries** › Prem Salary, Meena Salary);
+*Move ledgers here*, *Rename / move* and *Delete* (empty groups only) are on the group's panel. Past entries move with a
+ledger. Sundry Debtors, Sundry Creditors, Bank Accounts and Cash-in-Hand are read by name, so they have no sub-groups.
+Trial balance, Profit & loss and Balance sheet show the same groups with subtotals – choose *Summary (groups)* or
+*Detailed (ledgers)*. Excel import of ledgers accepts a group path such as "Indirect Expenses › Salaries".
+
 ### 10. HR
 **Employees**, **Attendance** (pick employees or drivers and the date), **Payroll** (*Compute* → check → *Post to
 accounts* → payslips).
+By default each person's salary posts to their own ledger ("Prem Salary") under **Salaries** (office staff) or
+**Driver Salaries** (Direct Expenses); change this in Admin › Settings › Payroll › Salary posting.
 
 ### 11. Compliance & documents
 **Compliance**: overdue / due-soon filings. Open one → status, **ARN / acknowledgement** from the government portal

@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { api, can, qs } from "../lib/api";
 import { dt, fyStart, inr, today } from "../lib/format";
 import ResourcePage, { ListSummary } from "../components/ResourcePage";
+import { GroupTree } from "./Groups";
 import { Bars, change, Donut, short, StatCard } from "../components/charts";
 import { Badge, Btn, Card, Field, Kpi, Modal, Page, Pager, ReasonModal, RefSelect, Search, Table, Tabs, download, run, toast, useLoad } from "../components/ui";
 import { F, FilterBar, useUrlFilters } from "../components/filters";
@@ -63,16 +64,12 @@ function VoucherForm({ onClose, onDone, initialType = "Journal" }: { onClose: ()
 }
 
 export function Ledgers() {
-  const [tab, setTab] = useState("Balances");
-  const bal = useLoad<any[]>(tab === "Balances" ? "/api/ledgers/balances" : null);
-  const [q, setQ] = useState("");
+  const [tab, setTab] = useState("Groups & ledgers");
   const [stmt, setStmt] = useState<any>(null);
-  return <Page title="Ledgers">
-    <Tabs tabs={["Balances", "Manage ledgers"]} value={tab} onChange={setTab} />
-    {tab === "Balances" ? <>
-      <div className="toolbar"><Search value={q} onChange={setQ} /></div>
-      <Table dense cols={[{ key: "group", label: "Group" }, { key: "name", label: "Ledger" }, { key: "nature", label: "Nature" }, { key: "balance", label: "Balance (Dr +)", type: "money" }]} rows={(bal.data || []).filter((l) => !q || l.name.toLowerCase().includes(q.toLowerCase()))} onRow={(l) => setStmt(l)} />
-    </> : <ResourcePage embedded name="ledgers" columns={["name", "code", "group_id", "party_type", "opening_balance", "opening_type", "gstin"]} />}
+  return <Page title="Groups & ledgers">
+    <Tabs tabs={["Groups & ledgers", "Manage ledgers"]} value={tab} onChange={setTab} />
+    {tab === "Groups & ledgers" ? <GroupTree onLedger={setStmt} />
+      : <ResourcePage embedded name="ledgers" columns={["name", "code", "group_id", "party_type", "opening_balance", "opening_type", "gstin"]} />}
     {stmt && <LedgerStatement ledger={stmt} onClose={() => setStmt(null)} />}
   </Page>;
 }

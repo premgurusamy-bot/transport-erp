@@ -50,6 +50,24 @@ def _bank_ledger(db, user, obj):
     obj.ledger_id = acc.party_ledger(db, "bank", obj.id, f"{obj.bank_name} A/c {obj.account_no[-4:]}")
 
 
+def _salary_ledger_on_create(person_type):
+    """New employee / salaried driver gets their own salary ledger when salaries are posted per person."""
+    def hook(db, user, obj):
+        from ..services import settings as app_settings
+
+        if app_settings.get(db, "payroll").get("salary_posting", "per_person") != "per_person":
+            return
+        if person_type == "driver" and not (obj.monthly_salary or 0):
+            return
+        acc.salary_ledger(db, person_type, obj.id, obj.name, getattr(obj, "code", None))
+    return hook
+
+
+def _driver_after_create(db, user, obj):
+    _driver_ledger(db, user, obj)
+    _salary_ledger_on_create("driver")(db, user, obj)
+
+
 def _driver_save(db, user, obj, data, is_new):
     if obj.gps_consent and not obj.gps_consent_at:
         obj.gps_consent_at = datetime.now(timezone.utc)
@@ -153,7 +171,7 @@ register("bank_accounts", Resource(BankAccount, "company", label="bank_name", se
 register("customers", Resource(Customer, "customers", label="name", search=["name", "code", "gstin", "mobile", "legal_name"], title="Customers", before_save=_customer_save, after_create=_customer_ledger, extra_filters=["category"]))
 register("vehicles", Resource(Vehicle, "vehicles", label="registration_no", search=["registration_no", "make", "model", "chassis_no"], title="Vehicles", before_save=_vehicle_save, default_sort="registration_no"))
 register("vehicle_events", Resource(VehicleEvent, "vehicles", label="event_type", title="Vehicle purchase / sale / transfer history", creatable=False, updatable=False, date_field="event_date"))
-register("drivers", Resource(Driver, "drivers", label="name", search=["name", "code", "mobile", "licence_no"], title="Drivers", restricted={"aadhaar_enc": "drivers:aadhaar", "bank_account_enc": "drivers:aadhaar"}, before_save=_driver_save, after_create=_driver_ledger, default_sort="name"))
+register("drivers", Resource(Driver, "drivers", label="name", search=["name", "code", "mobile", "licence_no"], title="Drivers", restricted={"aadhaar_enc": "drivers:aadhaar", "bank_account_enc": "drivers:aadhaar"}, before_save=_driver_save, after_create=_driver_after_create, default_sort="name"))
 register("driver_incidents", Resource(DriverIncident, "drivers", label="kind", search=["description", "challan_no", "location"], title="Accidents, fines & incidents", date_field="incident_date"))
 register("duty_roster", Resource(DutyRoster, "drivers", label="roster_date", title="Duty roster", deletable=True, date_field="roster_date"))
 register("driver_advances", Resource(DriverAdvance, "drivers", label="advance_date", title="Driver advances", updatable=False, after_create=_advance_after, date_field="advance_date", write_perm="accounts:write"))
@@ -176,7 +194,7 @@ register("items", Resource(Item, "warehouse", label="name", search=["sku", "name
 register("warehouse_rate_cards", Resource(WarehouseRateCard, "warehouse", label="storage_basis", title="Warehouse rate cards"))
 register("documents", Resource(Document, "documents", label="title", search=["title", "doc_number", "tags"], title="Documents", creatable=True, date_field="expiry_date"))
 register("departments", Resource(Department, "hr", label="name", title="Departments"))
-register("employees", Resource(Employee, "hr", label="name", search=["name", "code", "mobile", "designation"], title="Employees", restricted={"basic": "hr:salary", "hra": "hr:salary", "other_allowances": "hr:salary", "monthly_tds": "hr:salary", "bank_account_enc": "hr:salary", "exit_settlement_amount": "hr:salary"}))
+register("employees", Resource(Employee, "hr", label="name", search=["name", "code", "mobile", "designation"], title="Employees", after_create=_salary_ledger_on_create("employee"), restricted={"basic": "hr:salary", "hra": "hr:salary", "other_allowances": "hr:salary", "monthly_tds": "hr:salary", "bank_account_enc": "hr:salary", "exit_settlement_amount": "hr:salary"}))
 register("leave_types", Resource(LeaveType, "hr", label="name", title="Leave types"))
 register("leave_requests", Resource(LeaveRequest, "hr", label="from_date", title="Leave requests", before_save=_leave_save, date_field="from_date"))
 register("salary_advances", Resource(SalaryAdvance, "payroll", label="advance_date", title="Salary advances", updatable=False, after_create=_salary_advance_after, date_field="advance_date"))

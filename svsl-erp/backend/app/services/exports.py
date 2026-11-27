@@ -54,6 +54,9 @@ def report_xlsx(report: dict, company_name: str) -> bytes:
         cell.alignment = Alignment(wrap_text=True, vertical="top")
     for r in report["rows"]:
         ws.append([_val(r.get(c["key"]), c.get("type")) for c in cols])
+        if r.get("_bold"):  # group / section lines of grouped statements
+            for i in range(1, len(cols) + 1):
+                ws.cell(row=ws.max_row, column=i).font = Font(bold=True)
     if report.get("totals"):
         ws.append([_val(report["totals"].get(c["key"]), c.get("type")) if c["key"] in report["totals"] else ("Total" if i == 0 else None) for i, c in enumerate(cols)])
         for i in range(1, len(cols) + 1):

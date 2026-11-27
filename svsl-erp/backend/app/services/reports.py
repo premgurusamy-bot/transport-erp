@@ -381,39 +381,63 @@ def purchase_register(db: Session, start: date, end: date, **_):
             "rows": rows, "totals": _totals(rows, ["taxable", "cgst", "sgst", "igst", "tds", "total", "paid"])}
 
 
-def trial_balance_report(db: Session, start: date, end: date, **_):
+def _detail(kw) -> bool:
+    return str(kw.get("detail", "1")) not in ("0", "false", "summary")
+
+
+def _roots(db: Session, natures: tuple[str, ...]) -> list[int]:
+    return [g.id for g in sorted(acc.groups_map(db).values(), key=lambda g: g.id) if g.parent_id is None and g.nature in natures]
+
+
+def trial_balance_report(db: Session, start: date, end: date, **kw):
     tb = acc.trial_balance(db, start, end)
-    return {"title": "Trial balance", "subtitle": f"{fmt_date(start)} to {fmt_date(end)}", "columns": [col("group", "Group"), col("ledger", "Ledger", w=3), col("opening", "Opening (Dr+)", M), col("debit", "Debit", M), col("credit", "Credit", M), col("closing_dr", "Closing Dr", M), col("closing_cr", "Closing Cr", M)],
-            "rows": tb["rows"], "totals": _totals(tb["rows"], ["debit", "credit", "closing_dr", "closing_cr"]), "notes": ["Balanced" if tb["balanced"] else "NOT BALANCED – contact support"]}
+    values = {r["ledger_id"]: r for r in tb["rows"]}
+    keys = ["opening", "debit", "credit", "closing_dr", "closing_cr"]
+    rows = acc.tree_rows(db, values, _roots(db, ("Equity", "Liability", "Asset", "Income", "Expense")), keys, "head", _detail(kw))
+    return {"title": "Trial balance", "subtitle": f"{fmt_date(start)} to {fmt_date(end)} · {'detailed' if _detail(kw) else 'summary (groups)'}",
+            "columns": [col("head", "Particulars", w=4), col("opening", "Opening (Dr+)", M), col("debit", "Debit", M), col("credit", "Credit", M), col("closing_dr", "Closing Dr", M), col("closing_cr", "Closing Cr", M)],
+            "rows": rows, "totals": _totals(tb["rows"], ["debit", "credit", "closing_dr", "closing_cr"]), "notes": ["Balanced" if tb["balanced"] else "NOT BALANCED – contact support"]}
 
 
-def pnl_report(db: Session, start: date, end: date, **_):
+def pnl_report(db: Session, start: date, end: date, **kw):
     p = acc.profit_and_loss(db, start, end)
-    rows = []
-    for sec in ("Direct Incomes", "Direct Expenses"):
-        rows.append({"head": sec.upper(), "amount": p["totals"][sec]})
-        rows += [{"head": "   " + x["ledger"], "amount": x["amount"]} for x in p["sections"].get(sec, [])]
-    rows.append({"head": "GROSS PROFIT", "amount": p["gross_profit"]})
-    for sec in ("Indirect Incomes", "Indirect Expenses"):
-        rows.append({"head": sec.upper(), "amount": p["totals"][sec]})
-        rows += [{"head": "   " + x["ledger"], "amount": x["amount"]} for x in p["sections"].get(sec, [])]
-    rows.append({"head": "NET PROFIT", "amount": p["net_profit"]})
-    return {"title": "Profit & loss account", "subtitle": f"{fmt_date(start)} to {fmt_date(end)}", "columns": [col("head", "Particulars", w=4), col("amount", "Amount", M)], "rows": rows}
+    groups = acc.groups_map(db)
+    root = {g.name: g.id for g in groups.values() if g.parent_id is None}
+    detail = _detail(kw)
+
+    def section(name):
+        values = {x["ledger_id"]: {"amount": x["amount"]} for x in p["sections"].get(name, [])}
+        return acc.tree_rows(db, values, [root[name]], ["amount"], "head", detail) or [{"head": name, "amount": ZERO, "_bold": True, "_level": 0}]
+
+    rows = section("Direct Incomes") + section("Direct Expenses")
+    rows.append({"head": "GROSS PROFIT", "amount": p["gross_profit"], "_bold": True, "_result": True})
+    rows += section("Indirect Incomes") + section("Indirect Expenses")
+    rows.append({"head": "NET PROFIT", "amount": p["net_profit"], "_bold": True, "_result": True})
+    return {"title": "Profit & loss account", "subtitle": f"{fmt_date(start)} to {fmt_date(end)} · {'detailed' if detail else 'summary (groups)'}",
+            "columns": [col("head", "Particulars", w=4), col("amount", "Amount", M)], "rows": rows}
 
 
-def balance_sheet_report(db: Session, start: date, end: date, **_):
+def balance_sheet_report(db: Session, start: date, end: date, **kw):
     b = acc.balance_sheet(db, end, start)
-    rows = [{"side": "LIABILITIES & CAPITAL", "head": "", "amount": None}]
-    for g, items in b["liabilities"].items():
-        rows.append({"side": "", "head": g, "amount": r2(sum((x["amount"] for x in items), ZERO))})
-        rows += [{"side": "", "head": "   " + x["ledger"], "amount": x["amount"]} for x in items]
-    rows.append({"side": "Total", "head": "", "amount": b["total_liabilities"]})
-    rows.append({"side": "ASSETS", "head": "", "amount": None})
-    for g, items in b["assets"].items():
-        rows.append({"side": "", "head": g, "amount": r2(sum((x["amount"] for x in items), ZERO))})
-        rows += [{"side": "", "head": "   " + x["ledger"], "amount": x["amount"]} for x in items]
-    rows.append({"side": "Total", "head": "", "amount": b["total_assets"]})
-    return {"title": "Balance sheet", "subtitle": f"As on {fmt_date(end)}", "columns": [col("side", "Side"), col("head", "Particulars", w=4), col("amount", "Amount", M)], "rows": rows, "notes": [f"Difference: {b['difference']}"]}
+    bal = acc.ledger_balances(db, upto=end)
+    groups = acc.groups_map(db)
+    liab, asset = {}, {}
+    for lid, x in bal.items():
+        tg = acc.top_group(groups, x["ledger"].group_id)
+        if x["closing"] == 0 or tg.nature in ("Income", "Expense"):
+            continue
+        (asset if tg.nature == "Asset" else liab)[lid] = {"amount": x["closing"] if tg.nature == "Asset" else -x["closing"]}
+    detail = _detail(kw)
+    pl = next((i["amount"] for i in b["liabilities"].get("Profit & Loss Account", [])), ZERO)
+    rows = [{"head": "LIABILITIES & CAPITAL", "amount": None, "_bold": True, "_result": True}]
+    rows += acc.tree_rows(db, liab, _roots(db, ("Equity", "Liability")), ["amount"], "head", detail)
+    rows.append({"head": "Profit & Loss Account (accumulated profit / loss)", "amount": pl, "_bold": True, "_level": 0})
+    rows.append({"head": "Total liabilities & capital", "amount": b["total_liabilities"], "_bold": True, "_result": True})
+    rows.append({"head": "ASSETS", "amount": None, "_bold": True, "_result": True})
+    rows += acc.tree_rows(db, asset, _roots(db, ("Asset",)), ["amount"], "head", detail)
+    rows.append({"head": "Total assets", "amount": b["total_assets"], "_bold": True, "_result": True})
+    return {"title": "Balance sheet", "subtitle": f"As on {fmt_date(end)} · {'detailed' if detail else 'summary (groups)'}", "columns": [col("head", "Particulars", w=4), col("amount", "Amount", M)],
+            "rows": rows, "notes": [f"Difference: {b['difference']}"]}
 
 
 def cash_flow_report(db: Session, start: date, end: date, **_):

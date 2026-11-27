@@ -4,6 +4,9 @@ import { api, can, qs } from "../lib/api";
 import { dt, label } from "../lib/format";
 import ResourcePage, { ListSummary } from "../components/ResourcePage";
 import LayoutsEditor from "./Layouts";
+import { SalaryPosting } from "./Groups";
+
+const SALARY_KEYS = ["salary_posting", "staff_salary_group", "driver_salary_group", "salary_ledger_format"];
 import { Badge, Btn, Card, Field, FieldInput, Modal, Page, RefSelect, Table, Tabs, download, run, toast, useLoad } from "../components/ui";
 
 export function Company() {
@@ -49,9 +52,11 @@ export function Settings() {
     {sub === "Document layouts" && <LayoutsEditor />}
     {sub === "General" && <div className="settings">
       <nav className="report-list">{Object.keys(data).map((k) => <a key={k} className={k === tab ? "on" : ""} onClick={() => setTab(k)}>{label(k)}</a>)}</nav>
-      <Card title={label(tab)} className="grow">
+      <div className="grow">
+      {tab === "payroll" && <SalaryPosting value={sec} onChange={(v) => setData({ ...data, [tab]: v })} />}
+      <Card title={label(tab)}>
         <p className="muted small">{SECTION_HELP[tab]}</p>
-        <div className="form-grid">{Object.entries(sec).map(([k, v]) => <Field key={k} label={label(k)} wide={typeof v === "object" || (typeof v === "string" && v.length > 60)}>
+        <div className="form-grid">{Object.entries(sec).filter(([k]) => tab !== "payroll" || !SALARY_KEYS.includes(k)).map(([k, v]) => <Field key={k} label={label(k)} wide={typeof v === "object" || (typeof v === "string" && v.length > 60)}>
           {typeof v === "boolean" ? <input type="checkbox" checked={v} onChange={(e) => set(k, e.target.checked)} />
             : typeof v === "number" ? <input type="number" step="any" value={v} onChange={(e) => set(k, e.target.value === "" ? "" : Number(e.target.value))} />
               : v !== null && typeof v === "object" ? <textarea className="mono" rows={5} defaultValue={JSON.stringify(v, null, 1)} onBlur={(e) => { try { set(k, JSON.parse(e.target.value)); } catch { toast.err(`${label(k)}: invalid JSON`); } }} />
@@ -60,6 +65,7 @@ export function Settings() {
         </Field>)}</div>
         {can("settings:write") && <Btn kind="primary" onClick={save}>Save</Btn>}
       </Card>
+      </div>
     </div>}
     {sub === "GST treatments" && <><div className="warn-box">Seeded GST treatments are defaults and are marked "not verified". Confirm each rate, SAC and mechanism with your GST practitioner, then tick "Verified".</div>
       <ResourcePage embedded name="gst_treatments" columns={["code", "name", "service_type", "sac", "gst_rate", "charge_mechanism", "itc_eligible", "verified", "is_active"]} /></>}

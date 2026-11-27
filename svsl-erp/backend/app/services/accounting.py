@@ -531,3 +531,253 @@ def allocate_payment(db: Session, voucher: Voucher, allocations: list[dict]) -> 
         db.add(BillAllocation(voucher_id=voucher.id, vendor_bill_id=bill.id, amount=amt))
         bill.amount_paid = r2(D(bill.amount_paid) + amt)
         refresh_bill_status(bill)
+
+
+# ------------------------------------------------------------------ account groups (user groups inside the main groups)
+
+# Groups the application reads by name (receivables, payables, cash & bank): no sub-groups, and ledgers stay put.
+FIXED_GROUPS = {"Sundry Debtors", "Sundry Creditors", "Bank Accounts", "Cash-in-Hand"}
+NBSP = " "
+
+
+def _children(groups: dict[int, AccountGroup]) -> dict[int | None, list[AccountGroup]]:
+    out: dict[int | None, list[AccountGroup]] = defaultdict(list)
+    for g in groups.values():
+        out[g.parent_id].append(g)
+    for v in out.values():
+        v.sort(key=lambda g: (not g.is_system, g.name.lower()))
+    return out
+
+
+def _ancestors(groups: dict[int, AccountGroup], gid: int) -> list[int]:
+    seen, cur = [], gid
+    while cur is not None and cur not in seen:
+        seen.append(cur)
+        cur = groups[cur].parent_id
+    return seen
+
+
+def create_group(db: Session, user, name: str, parent_id: int) -> AccountGroup:
+    from ..core.audit import log
+
+    name = (name or "").strip()
+    if len(name) < 2:
+        raise AppError("Enter a group name")
+    groups = groups_map(db)
+    parent = groups.get(int(parent_id or 0))
+    if not parent:
+        raise AppError("Choose the group this group sits under")
+    if parent.name in FIXED_GROUPS:
+        raise AppError(f"Groups cannot be created under '{parent.name}' – the system reads that group by name")
+    if any(g.name.lower() == name.lower() for g in groups.values()):
+        raise AppError(f"A group named '{name}' already exists")
+    g = AccountGroup(name=name, parent_id=parent.id, nature=parent.nature, cash_flow=parent.cash_flow, is_system=False)
+    db.add(g)
+    db.flush()
+    log(db, user, "create", "account_groups", g.id, None, {"name": name, "under": parent.name})
+    return g
+
+
+def update_group(db: Session, user, gid: int, name: str | None = None, parent_id: int | None = None) -> AccountGroup:
+    from ..core.audit import log
+
+    groups = groups_map(db)
+    g = groups.get(gid)
+    if not g:
+        raise AppError("Group not found", 404)
+    if g.is_system:
+        raise AppError("Main groups cannot be renamed or moved")
+    before = {"name": g.name, "parent_id": g.parent_id}
+    if name is not None:
+        name = name.strip()
+        if len(name) < 2:
+            raise AppError("Enter a group name")
+        if any(x.id != g.id and x.name.lower() == name.lower() for x in groups.values()):
+            raise AppError(f"A group named '{name}' already exists")
+        g.name = name
+    if parent_id is not None and int(parent_id) != g.parent_id:
+        parent = groups.get(int(parent_id))
+        if not parent or parent.name in FIXED_GROUPS:
+            raise AppError("Choose a valid group to move this group under")
+        if g.id in _ancestors(groups, parent.id):
+            raise AppError("A group cannot be moved inside itself")
+        if top_group(groups, parent.id).nature != top_group(groups, g.id).nature:
+            raise AppError("A group can only move within the same type (expense, income, asset, liability)")
+        g.parent_id = parent.id
+    db.flush()
+    log(db, user, "update", "account_groups", g.id, before, {"name": g.name, "parent_id": g.parent_id})
+    return g
+
+
+def delete_group(db: Session, user, gid: int) -> None:
+    from ..core.audit import log
+
+    g = db.get(AccountGroup, gid)
+    if not g:
+        raise AppError("Group not found", 404)
+    if g.is_system:
+        raise AppError("Main groups cannot be deleted")
+    if db.execute(select(Ledger.id).where(Ledger.group_id == gid)).first() or db.execute(select(AccountGroup.id).where(AccountGroup.parent_id == gid)).first():
+        raise AppError("Move this group's ledgers and sub-groups out first")
+    log(db, user, "delete", "account_groups", g.id, {"name": g.name}, None)
+    db.delete(g)
+    db.flush()
+
+
+def move_ledgers(db: Session, user, gid: int, ledger_ids: list[int]) -> int:
+    from ..core.audit import log
+
+    groups = groups_map(db)
+    target = groups.get(gid)
+    if not target:
+        raise AppError("Group not found", 404)
+    if target.name in FIXED_GROUPS:
+        raise AppError(f"Ledgers cannot be moved into '{target.name}'")
+    nature = top_group(groups, target.id).nature
+    moved = 0
+    for lid in ledger_ids:
+        led = db.get(Ledger, int(lid))
+        if not led:
+            raise AppError("Ledger not found", 404)
+        if led.group_id == target.id:
+            continue
+        if groups[led.group_id].name in FIXED_GROUPS:
+            raise AppError(f"'{led.name}' is a {groups[led.group_id].name} ledger and stays in that group")
+        if top_group(groups, led.group_id).nature != nature:
+            raise AppError(f"'{led.name}' is a {top_group(groups, led.group_id).nature.lower()} ledger – it can't move into an {nature.lower()} group")
+        log(db, user, "move", "ledgers", led.id, {"group": groups[led.group_id].name}, {"group": target.name})
+        led.group_id = target.id
+        moved += 1
+    db.flush()
+    return moved
+
+
+def tree_rows(db: Session, values: dict[int, dict], root_ids: list[int], keys: list[str], label_key: str, detail: bool = True, extra: dict | None = None) -> list[dict]:
+    """Report rows for groups → sub-groups → ledgers with a subtotal on every group line.
+
+    values: ledger_id → {key: amount}. Empty groups are left out. In summary mode (detail=False) ledgers inside
+    sub-groups are folded into their group's total; ledgers directly under a main group are still listed."""
+    groups = groups_map(db)
+    kids = _children(groups)
+    names = {l.id: (l.name, l.group_id) for l in db.execute(select(Ledger)).scalars()}
+    by_group: dict[int, list[int]] = defaultdict(list)
+    for lid in values:
+        if lid in names:
+            by_group[names[lid][1]].append(lid)
+    memo: dict[int, dict] = {}
+
+    def total(gid: int) -> dict:
+        if gid not in memo:
+            t = {k: ZERO for k in keys}
+            for lid in by_group.get(gid, []):
+                for k in keys:
+                    t[k] += D(values[lid].get(k) or 0)
+            for ch in kids.get(gid, []):
+                for k, v in total(ch.id).items():
+                    t[k] += v
+            memo[gid] = t
+        return memo[gid]
+
+    def nonzero(t: dict) -> bool:
+        return any(v != 0 for v in t.values())
+
+    rows: list[dict] = []
+
+    def emit(gid: int, level: int):
+        t = total(gid)
+        has_ledgers = any(nonzero({k: D(values[l].get(k) or 0) for k in keys}) for l in by_group.get(gid, []))
+        if not nonzero(t) and not has_ledgers:
+            return
+        rows.append({label_key: NBSP * 4 * level + groups[gid].name, **{k: r2(v) for k, v in t.items()}, "_bold": True, "_level": level, "group_id": gid, **(extra or {})})
+        for ch in kids.get(gid, []):
+            emit(ch.id, level + 1)
+        if detail or level == 0:
+            for lid in sorted(by_group.get(gid, []), key=lambda l: names[l][0].lower()):
+                v = {k: D(values[lid].get(k) or 0) for k in keys}
+                if nonzero(v):
+                    rows.append({label_key: NBSP * 4 * (level + 1) + names[lid][0], **{k: r2(x) for k, x in v.items()}, "_level": level + 1, "ledger_id": lid, **(extra or {})})
+
+    for rid in root_ids:
+        emit(rid, 0)
+    return rows
+
+
+def group_tree(db: Session, on: date, start: date | None = None) -> list[dict]:
+    """Chart of accounts as a tree: groups with their ledgers, balances (Dr +) and totals, for the Groups & ledgers screen."""
+    bal = ledger_balances(db, upto=on, start=start)
+    groups = groups_map(db)
+    kids = _children(groups)
+    ledgers = db.execute(select(Ledger)).scalars().all()
+    by_group: dict[int, list] = defaultdict(list)
+    for l in ledgers:
+        b = bal.get(l.id)
+        amount = (b["closing"] if start is None else b["debit"] - b["credit"]) if b else ZERO
+        by_group[l.group_id].append({"id": l.id, "name": l.name, "balance": r2(amount), "is_active": l.is_active, "system": bool(l.system_key), "party_type": l.party_type})
+
+    def node(g: AccountGroup) -> dict:
+        children = [node(c) for c in kids.get(g.id, [])]
+        leds = sorted(by_group.get(g.id, []), key=lambda x: x["name"].lower())
+        total = sum((x["balance"] for x in leds), ZERO) + sum((c["total"] for c in children), ZERO)
+        count = len(leds) + sum(c["ledger_count"] for c in children)
+        return {"id": g.id, "name": g.name, "nature": g.nature, "system": bool(g.is_system), "fixed": g.name in FIXED_GROUPS, "parent_id": g.parent_id,
+                "groups": children, "ledgers": leds, "total": r2(total), "ledger_count": count}
+
+    return [node(g) for g in kids.get(None, [])]
+
+
+def salary_ledger(db: Session, person_type: str, person_id: int, name: str, code: str | None = None) -> int:
+    """The person's own salary-expense ledger ("Prem Salary"), under the payroll setting's group (created if missing)."""
+    from . import settings as app_settings
+
+    cfg = app_settings.get(db, "payroll")
+    ptype = "sal_drv" if person_type == "driver" else "sal_emp"
+    lid = db.execute(select(Ledger.id).where(Ledger.party_type == ptype, Ledger.party_id == person_id)).scalar_one_or_none()
+    if lid:
+        return lid
+    is_driver = person_type == "driver"
+    gname = (cfg.get("driver_salary_group") if is_driver else cfg.get("staff_salary_group")) or ("Driver Salaries" if is_driver else "Salaries")
+    gid = db.execute(select(AccountGroup.id).where(AccountGroup.name == gname)).scalar_one_or_none()
+    if gid is None:
+        parent = db.execute(select(AccountGroup).where(AccountGroup.name == ("Direct Expenses" if is_driver else "Indirect Expenses"))).scalar_one()
+        g = AccountGroup(name=gname, parent_id=parent.id, nature=parent.nature, cash_flow=parent.cash_flow, is_system=False)
+        db.add(g)
+        db.flush()
+        gid = g.id
+    fmt = cfg.get("salary_ledger_format") or "{name} Salary"
+    base = fmt.replace("{name}", name).replace("{code}", code or "").replace(" ()", "").strip()
+    final, n = base, 2
+    while db.execute(select(Ledger.id).where(Ledger.name == final)).scalar_one_or_none():
+        final = f"{base} #{n}"
+        n += 1
+    led = Ledger(name=final, group_id=gid, party_type=ptype, party_id=person_id)
+    db.add(led)
+    db.flush()
+    return led.id
+
+
+def resolve_group_path(db: Session, text: str) -> int:
+    """"Indirect Expenses › Salaries" (also > or /): the last group's id; groups missing after the first are created."""
+    import re
+
+    parts = [p.strip() for p in re.split(r"\s*[›>/]\s*", text or "") if p.strip()]
+    if not parts:
+        raise AppError("Group is empty")
+    groups = groups_map(db)
+    by_name = {g.name.lower(): g for g in groups.values()}
+    cur = by_name.get(parts[0].lower())
+    if not cur:
+        raise AppError(f"Unknown group '{parts[0]}'")
+    for name in parts[1:]:
+        nxt = next((g for g in groups.values() if g.parent_id == cur.id and g.name.lower() == name.lower()), None)
+        if nxt is None:
+            if name.lower() in by_name:
+                raise AppError(f"Group '{name}' already exists under '{groups[by_name[name.lower()].parent_id].name if by_name[name.lower()].parent_id else 'the top level'}'")
+            if cur.name in FIXED_GROUPS:
+                raise AppError(f"Groups cannot be created under '{cur.name}'")
+            nxt = AccountGroup(name=name, parent_id=cur.id, nature=cur.nature, cash_flow=cur.cash_flow, is_system=False)
+            db.add(nxt)
+            db.flush()
+            groups[nxt.id] = nxt
+            by_name[name.lower()] = nxt
+        cur = nxt
+    return cur.id

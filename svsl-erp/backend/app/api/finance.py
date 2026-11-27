@@ -299,7 +299,69 @@ def ledger_balances(on: str | None = None, db: Session = Depends(get_db), user: 
 
 @router.get("/account-groups")
 def account_groups(db: Session = Depends(get_db), user: CurrentUser = Depends(require("accounts:read"))):
-    return [{"id": g.id, "label": g.name, "name": g.name, "parent_id": g.parent_id, "nature": g.nature} for g in db.query(AccountGroup).order_by(AccountGroup.name)]
+    groups = acc.groups_map(db)
+
+    def path(g):
+        names, cur, seen = [], g, set()
+        while cur is not None and cur.id not in seen:
+            seen.add(cur.id)
+            names.insert(0, cur.name)
+            cur = groups.get(cur.parent_id) if cur.parent_id else None
+        return " › ".join(names)
+
+    return sorted([{"id": g.id, "label": path(g), "name": g.name, "path": path(g), "parent_id": g.parent_id, "nature": g.nature, "system": bool(g.is_system),
+                    "fixed": g.name in acc.FIXED_GROUPS} for g in groups.values()], key=lambda x: x["path"].lower())
+
+
+@router.get("/account-groups/tree")
+def account_group_tree(on: str | None = None, start: str | None = None, db: Session = Depends(get_db), user: CurrentUser = Depends(require("accounts:read"))):
+    """Groups → sub-groups → ledgers with balances (as on a date) or the movement for a period (start given)."""
+    end = date.fromisoformat(on) if on else date.today()
+    return jsonable(acc.group_tree(db, end, date.fromisoformat(start) if start else None))
+
+
+@router.post("/account-groups")
+def new_group(data: dict, db: Session = Depends(get_db), user: CurrentUser = Depends(require("accounts:write"))):
+    g = acc.create_group(db, user, data.get("name"), data.get("parent_id"))
+    moved = acc.move_ledgers(db, user, g.id, data.get("ledger_ids") or [])
+    db.commit()
+    return {"id": g.id, "name": g.name, "moved": moved}
+
+
+@router.put("/account-groups/{gid}")
+def edit_group(gid: int, data: dict, db: Session = Depends(get_db), user: CurrentUser = Depends(require("accounts:write"))):
+    g = acc.update_group(db, user, gid, data.get("name"), data.get("parent_id"))
+    db.commit()
+    return {"id": g.id, "name": g.name, "parent_id": g.parent_id}
+
+
+@router.delete("/account-groups/{gid}")
+def remove_group(gid: int, db: Session = Depends(get_db), user: CurrentUser = Depends(require("accounts:write"))):
+    acc.delete_group(db, user, gid)
+    db.commit()
+    return {"ok": True}
+
+
+@router.post("/account-groups/{gid}/ledgers")
+def move_into_group(gid: int, data: dict, db: Session = Depends(get_db), user: CurrentUser = Depends(require("accounts:write"))):
+    moved = acc.move_ledgers(db, user, gid, data.get("ledger_ids") or [])
+    db.commit()
+    return {"moved": moved}
+
+
+@router.post("/payroll/salary-ledgers")
+def create_salary_ledgers(db: Session = Depends(get_db), user: CurrentUser = Depends(require("accounts:write"))):
+    """Create each active employee's and salaried driver's own salary ledger now (payroll creates missing ones anyway)."""
+    from ..models import Driver, Employee, Ledger
+
+    before = db.query(Ledger).filter(Ledger.party_type.in_(["sal_emp", "sal_drv"])).count()
+    for e in db.query(Employee).filter(Employee.is_active.is_(True), Employee.status.in_(["Active", "Notice Period"])):
+        acc.salary_ledger(db, "employee", e.id, e.name, e.code)
+    for d in db.query(Driver).filter(Driver.is_active.is_(True), Driver.monthly_salary > 0):
+        acc.salary_ledger(db, "driver", d.id, d.name, d.code)
+    after = db.query(Ledger).filter(Ledger.party_type.in_(["sal_emp", "sal_drv"])).count()
+    db.commit()
+    return {"created": after - before, "total": after}
 
 
 # ------------------------------------------------------------------ bank reconciliation

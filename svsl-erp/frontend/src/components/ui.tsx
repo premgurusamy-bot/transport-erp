@@ -166,7 +166,7 @@ export function Table({ cols, rows, onRow, empty = "No records", totals, dense }
     <thead><tr>{cols.map((c) => <th key={c.key} className={c.type === "money" || c.type === "number" ? "r" : ""}>{c.label}</th>)}</tr></thead>
     <tbody>
       {rows.length === 0 && <tr><td colSpan={cols.length} className="empty">{empty}</td></tr>}
-      {rows.map((r, i) => <tr key={r.id ?? i} onClick={onRow ? () => onRow(r) : undefined} className={onRow ? "click" : ""}>
+      {rows.map((r, i) => <tr key={r.id ?? i} onClick={onRow ? () => onRow(r) : undefined} className={`${onRow ? "click" : ""} ${r._bold ? (r._result ? "res" : "grp") : ""}`}>
         {cols.map((c) => <td key={c.key} className={c.type === "money" || c.type === "number" ? "r nw" : c.type === "date" || c.type === "datetime" || c.type === "badge" ? "nw" : ""}>{cell(r, c)}</td>)}
       </tr>)}
     </tbody>

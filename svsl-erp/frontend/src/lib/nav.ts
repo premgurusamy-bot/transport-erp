@@ -26,7 +26,7 @@ export const NAV: { group: string; items: NavItem[] }[] = [
     { to: "/receipts", label: "Receipts", perm: "accounts:write", icon: "rupee" },
     { to: "/vendor-payments", label: "Payments", perm: "accounts:write", icon: "bank" },
     { to: "/vouchers", label: "Vouchers", perm: "accounts:read", icon: "book" },
-    { to: "/ledgers", label: "Ledgers", perm: "accounts:read", icon: "book" },
+    { to: "/ledgers", label: "Groups & ledgers", perm: "accounts:read", icon: "book" },
     { to: "/bank", label: "Bank reconciliation", perm: "accounts:read", icon: "bank" },
     { to: "/reports?r=trial_balance", label: "Financial statements", perm: "accounts:read", icon: "chart" },
     { to: "/reports?r=customer_outstanding", label: "Outstanding & ageing", perm: "accounts:read", icon: "clock" },

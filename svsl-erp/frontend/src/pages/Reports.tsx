@@ -12,7 +12,7 @@ function ReportChart({ data }: { data: any }) {
   const lab = cols.find((c) => c.type !== "money" && c.type !== "number");
   const vals = cols.filter((c) => c.type === "money").slice(0, 3);
   const rows: any[] = (data.rows || []).filter((r: any) => lab && r[lab.key] !== null && r[lab.key] !== "" && r[lab.key] !== undefined);
-  if (!lab || !vals.length || rows.length < 2) return null;
+  if (!lab || !vals.length || rows.length < 2 || (data.rows || []).some((r: any) => r._bold)) return null;  // no chart for grouped statements
   const pick = lab.type === "date" ? rows.slice(0, 31) : [...rows].sort((a, b) => Math.abs(Number(b[vals[0].key] || 0)) - Math.abs(Number(a[vals[0].key] || 0))).slice(0, 15);
   const name = (v: any) => { const x = lab.type === "date" ? dt(v) : String(v); return x.length > 14 ? x.slice(0, 13) + "…" : x; };
   return <div className="card" style={{ boxShadow: "none" }}><div className="card-b">
@@ -24,7 +24,7 @@ function ReportChart({ data }: { data: any }) {
 const PARAMS: Record<string, string[]> = {
   trip_sheet: ["vehicle_id", "driver_id", "customer_id"], lr_register: ["customer_id"], customer_profitability: ["customer_id"], route_profitability: ["customer_id"],
   trip_profitability: ["customer_id"], fuel_mileage: ["vehicle_id"], toll_statement: ["vehicle_id"], customer_statement: ["customer_id"], sales_register: ["customer_id"],
-  ledger: ["ledger_id"], stock_register: ["warehouse_id", "customer_id"], stock_movements: ["warehouse_id", "doc_type"], payroll_register: ["month"],
+  ledger: ["ledger_id"], trial_balance: ["detail"], profit_loss: ["detail"], balance_sheet: ["detail"], stock_register: ["warehouse_id", "customer_id"], stock_movements: ["warehouse_id", "doc_type"], payroll_register: ["month"],
 };
 const REF: Record<string, string> = { vehicle_id: "vehicles", driver_id: "drivers", customer_id: "customers", ledger_id: "ledgers", warehouse_id: "warehouses" };
 
@@ -59,7 +59,7 @@ export default function Reports() {
           <div className="row gap wrap">
             <Field label="From"><input type="date" value={p.start} onChange={(e) => setP({ ...p, start: e.target.value })} /></Field>
             <Field label="To / as on"><input type="date" value={p.end} onChange={(e) => setP({ ...p, end: e.target.value })} /></Field>
-            {(PARAMS[key] || []).map((k) => <Field key={k} label={k.replace("_id", "").replace("_", " ")}>{REF[k] ? <RefSelect refName={REF[k]} value={p[k]} onChange={(v) => setP({ ...p, [k]: v })} placeholder="All" /> : k === "month" ? <input type="month" value={p.month || ""} onChange={(e) => setP({ ...p, month: e.target.value })} /> : k === "doc_type" ? <select value={p.doc_type || ""} onChange={(e) => setP({ ...p, doc_type: e.target.value })}><option value="">All</option>{["Inward", "Outward", "Damage", "Shortage", "Transfer", "Adjustment"].map((x) => <option key={x}>{x}</option>)}</select> : <input value={p[k] || ""} onChange={(e) => setP({ ...p, [k]: e.target.value })} />}</Field>)}
+            {(PARAMS[key] || []).map((k) => <Field key={k} label={k === "detail" ? "Show" : k.replace("_id", "").replace("_", " ")}>{REF[k] ? <RefSelect refName={REF[k]} value={p[k]} onChange={(v) => setP({ ...p, [k]: v })} placeholder="All" /> : k === "month" ? <input type="month" value={p.month || ""} onChange={(e) => setP({ ...p, month: e.target.value })} /> : k === "detail" ? <select value={p.detail ?? "1"} onChange={(e) => setP({ ...p, detail: e.target.value })}><option value="1">Detailed (ledgers)</option><option value="0">Summary (groups)</option></select> : k === "doc_type" ? <select value={p.doc_type || ""} onChange={(e) => setP({ ...p, doc_type: e.target.value })}><option value="">All</option>{["Inward", "Outward", "Damage", "Shortage", "Transfer", "Adjustment"].map((x) => <option key={x}>{x}</option>)}</select> : <input value={p[k] || ""} onChange={(e) => setP({ ...p, [k]: e.target.value })} />}</Field>)}
           </div>
           <ErrorBox error={err} />
           {data && <>{data.subtitle && <p className="muted">{data.subtitle}</p>}{chart && <ReportChart data={data} />}<Table dense cols={data.columns} rows={data.rows} totals={data.totals} />{(data.notes || []).map((n: string) => <p key={n} className="muted small">{n}</p>)}</>}

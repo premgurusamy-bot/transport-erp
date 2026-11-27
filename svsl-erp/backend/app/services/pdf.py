@@ -516,7 +516,7 @@ def report_pdf(report: dict, company, layout: dict | None = None) -> bytes:
         story.append(P(report["subtitle"], st["c"]))
     story.append(Spacer(1, 3 * mm))
     head = [P(c["label"], st["b"]) for c in cols]
-    body = [[P(_cell(r.get(c["key"]), c.get("type")), st["r"] if c.get("type") in ("money", "number") else st["n"]) for c in cols] for r in report["rows"]]
+    body = [[P(_cell(r.get(c["key"]), c.get("type")), (st["rb"] if r.get("_bold") else st["r"]) if c.get("type") in ("money", "number") else (st["b"] if r.get("_bold") else st["n"])) for c in cols] for r in report["rows"]]
     data = [head] + body
     if report.get("totals"):
         data.append([P(_cell(report["totals"].get(c["key"]), c.get("type")) if c["key"] in report["totals"] else ("Total" if i == 0 else ""), st["rb"] if c.get("type") in ("money", "number") else st["b"]) for i, c in enumerate(cols)])

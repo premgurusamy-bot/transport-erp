@@ -130,8 +130,21 @@ def post_payroll(db: Session, user, run_id: int) -> PayrollRun:
     y, m = int(run.month[:4]), int(run.month[5:7])
     on = date(y, m, calendar.monthrange(y, m)[1])
     s = lambda attr: r2(sum((D(getattr(p, attr)) for p in slips), ZERO))  # noqa: E731
-    lines = [
-        {"ledger_id": acc.sys_ledger(db, "SALARY_EXP"), "debit": s("gross")},
+    cfg = app_settings.get(db, "payroll")
+    if cfg.get("salary_posting", "per_person") == "per_person":
+        # each person's salary to their own ledger ("Prem Salary") under the Salaries / Driver Salaries group
+        from ..models import Employee
+
+        salary_lines = []
+        for p in slips:
+            if D(p.gross) == 0:
+                continue
+            person = db.get(Driver if p.person_type == "driver" else Employee, p.person_id)
+            lid = acc.salary_ledger(db, p.person_type, p.person_id, p.name or (person.name if person else f"#{p.person_id}"), getattr(person, "code", None))
+            salary_lines.append({"ledger_id": lid, "debit": r2(D(p.gross))})
+    else:
+        salary_lines = [{"ledger_id": acc.sys_ledger(db, "SALARY_EXP"), "debit": s("gross")}]
+    lines = salary_lines + [
         {"ledger_id": acc.sys_ledger(db, "PF_EMPLOYER_EXP"), "debit": s("pf_employer")},
         {"ledger_id": acc.sys_ledger(db, "ESI_EMPLOYER_EXP"), "debit": s("esi_employer")},
         {"ledger_id": acc.sys_ledger(db, "PF_PAYABLE"), "credit": s("pf_employee") + s("pf_employer")},

@@ -310,6 +310,13 @@ class RefCache:
                 if res and res.label in cols and getattr(o, res.label):
                     lookup.setdefault(_norm(getattr(o, res.label)), o.id)
             self.cache[ref] = lookup
+        if ref == "account_groups" and any(sep in str(value) for sep in ("›", ">", "/")):
+            from . import accounting as acc
+
+            try:  # a group path such as "Indirect Expenses › Salaries" – missing groups are created
+                return acc.resolve_group_path(self.db, str(value))
+            except AppError as exc:
+                raise ValueError(exc.detail) from exc
         v = _norm(value)
         if v.isdigit() and int(v) in self.cache[ref].values() and v not in self.cache[ref]:
             return int(v)
@@ -491,6 +498,13 @@ def _run_opening(db, user, fields, mapping, constants, rows) -> list[dict]:
         status = "updated"
         if not led:
             g = groups.get(_norm(vals.get("group") or ""))
+            if not g and any(sep in str(vals.get("group") or "") for sep in ("›", ">", "/")):
+                from . import accounting as acc
+
+                try:
+                    g = acc.resolve_group_path(db, str(vals["group"]))
+                except AppError:
+                    g = None
             if not g:
                 out.append({"row": row["_row"], "key": name, "status": "error", "message": f"Ledger not found. Give a group (e.g. Sundry Debtors) to create it{' – unknown group ' + str(vals.get('group')) if vals.get('group') else ''}"})
                 continue
