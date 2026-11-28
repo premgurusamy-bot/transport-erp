@@ -6,7 +6,7 @@
   "main": "main.cjs",
   "private": true,
   "license": "UNLICENSED",
-  "author": "Sree Venkateswara Logistics",
+  "author": "A Prime Transport ERP",
   "scripts": {
     "start": "electron .",
     "dist:win": "electron-builder --win nsis --x64"
@@ -18,7 +18,7 @@
   "build": {
     "appId": "in.svsl.erp",
     "productName": "A Prime Transport ERP",
-    "copyright": "Sree Venkateswara Logistics",
+    "copyright": "A Prime Transport ERP",
     "directories": { "output": "release" },
     "files": ["main.cjs", "pgctl.cjs", "preload.cjs", "setup.html", "starting.html", "icon.png", "emblem.png", "poster.jpg", "package.json"],
     "extraResources": [

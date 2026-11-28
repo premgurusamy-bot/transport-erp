@@ -64,6 +64,7 @@ export const NAV: { group: string; items: NavItem[] }[] = [
     { to: "/import", label: "Import from Excel", icon: "upload" },
     { to: "/audit", label: "Audit trail", perm: "audit:read", icon: "history" },
     { to: "/backup", label: "Backup", perm: "backup:read", icon: "save" },
+    { to: "/licence", label: "Licence", perm: "settings:read", icon: "key" },
   ] },
 ];
 

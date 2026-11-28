@@ -9,10 +9,10 @@ from sqlalchemy.orm import Session
 from ..models import NumberSeries
 
 DEFAULT_PREFIXES = {
-    "LR": "SVL/LR/",
+    "LR": "LR/",
     "TRIP": "TRP/",
     "BOOKING": "BKG/",
-    "INVOICE": "SVL/",
+    "INVOICE": "INV/",
     "PROFORMA": "PRF/",
     "DEBIT_NOTE": "DN/",
     "CREDIT_NOTE": "CN/",

@@ -13,7 +13,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from . import api  # noqa: F401
-from .api import admin, auth, crud, finance, fleet, imports, operations, portal, resources  # noqa: F401
+from .api import admin, auth, crud, finance, fleet, imports, operations, portal, resources, setup  # noqa: F401
 from .config import get_settings
 from .db import SessionLocal
 
@@ -75,6 +75,23 @@ def create_app() -> FastAPI:
             response.headers.setdefault("Cache-Control", "no-store")
         return response
 
+    @app.middleware("http")
+    async def licence_guard(request: Request, call_next):
+        """When the trial or licence has ended the ERP stays readable, but changes are refused (HTTP 402)."""
+        from starlette.concurrency import run_in_threadpool
+
+        from .services import licensing
+
+        if licensing.blocks(request.method, request.url.path):
+            try:
+                st = await run_in_threadpool(licensing.status)
+            except Exception:  # noqa: BLE001 – never lock users out because the check itself failed
+                log.exception("licence check failed")
+                st = {"read_only": False}
+            if st.get("read_only"):
+                return JSONResponse({"detail": st.get("message") or "The licence has ended", "licence": st.get("state")}, status_code=402)
+        return await call_next(request)
+
     @app.exception_handler(StarletteHTTPException)
     async def http_error(request: Request, exc: StarletteHTTPException):
         return JSONResponse({"detail": exc.detail}, status_code=exc.status_code)
@@ -88,7 +105,7 @@ def create_app() -> FastAPI:
     async def value_error(request: Request, exc: ValueError):
         return JSONResponse({"detail": str(exc)}, status_code=400)
 
-    for r in (auth.router, admin.router, crud.router, operations.router, finance.router, fleet.router, portal.router, imports.router):
+    for r in (auth.router, setup.router, admin.router, crud.router, operations.router, finance.router, fleet.router, portal.router, imports.router):
         app.include_router(r)
 
     @app.get("/api/health")

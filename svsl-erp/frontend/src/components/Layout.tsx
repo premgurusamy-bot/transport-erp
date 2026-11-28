@@ -8,6 +8,8 @@ import { ACCENTS, getTheme, onThemeChange, setTheme } from "../lib/theme";
 import { Icon } from "./charts";
 import { Badge } from "./ui";
 import GlobalSearch from "./GlobalSearch";
+import { useAppInfo } from "../lib/appinfo";
+import { LicenceBanner } from "../pages/Licence";
 
 export { NAV } from "../lib/nav";
 export type { NavItem } from "../lib/nav";
@@ -51,6 +53,7 @@ export default function Layout() {
   const [notes, setNotes] = useState<any[]>([]);
   const [showNotes, setShowNotes] = useState(false);
   const [, force] = useState(0);
+  const info = useAppInfo();
   useEffect(() => setOpen(false), [loc.pathname]);
   useEffect(() => {
     const load = () => api.get("/api/notifications").then(setNotes).catch(() => {});
@@ -68,7 +71,7 @@ export default function Layout() {
   return <div className="app">
     <header className="top">
       <button className="icon-btn burger" aria-label="Menu" onClick={toggleMenu}><Icon name="menu" size={20} /></button>
-      <NavLink to="/" className="brand"><img src="/brand/emblem-64.png" alt="A Prime Transport ERP" className="emblem" /><div><b>A Prime Transport ERP</b><small>Sree Venkateswara Logistics</small></div></NavLink>
+      <NavLink to="/" className="brand"><img src="/brand/emblem-64.png" alt="A Prime Transport ERP" className="emblem" /><div><b>A Prime Transport ERP</b>{info?.company && <small>{info.company}</small>}</div></NavLink>
       <GlobalSearch />
       <div className="grow" />
       <select className="hide-s" aria-label={t("Language")} value={getLang()} onChange={(e) => { setLang(e.target.value); force((x) => x + 1); }}><option value="en">English</option><option value="ta">தமிழ்</option></select>
@@ -86,7 +89,7 @@ export default function Layout() {
             className={({ isActive }) => (isActive && (!i.to.includes("?") || location.search === i.to.slice(i.to.indexOf("?"))) ? "active" : "")}><Icon name={i.icon} /><span>{t(i.label)}</span></NavLink>)}</div>;
         })}</nav>
       </aside>
-      <div className="main"><main className="content"><Outlet /></main></div>
+      <div className="main"><LicenceBanner /><main className="content"><Outlet /></main></div>
     </div>
     {showNotes && <div className="notes-pop">
       <div className="row between" style={{ marginBottom: 6 }}><b>{t("Notifications")}</b><button className="btn ghost sm" onClick={() => api.post("/api/notifications/read", {}).then(() => setNotes(notes.map((n) => ({ ...n, read: true }))))}>Mark all read</button></div>

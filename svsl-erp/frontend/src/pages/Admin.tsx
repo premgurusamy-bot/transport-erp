@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { api, can, qs } from "../lib/api";
+import { api, auth, can, qs } from "../lib/api";
 import { dt, label } from "../lib/format";
 import ResourcePage, { ListSummary } from "../components/ResourcePage";
 import LayoutsEditor from "./Layouts";
@@ -165,7 +165,8 @@ export function Backup() {
   };
   const [reset, setReset] = useState<any>(null);
   const doReset = async () => {
-    const r: any = await run(() => api.post("/api/system/factory-reset", { confirm: reset.confirm, password: reset.password }));
+    const r: any = await run(() => api.post("/api/system/factory-reset", { confirm: reset.confirm, password: reset.password, full: !!reset.full }));
+    if (r && r.full) { auth.clear(); toast.ok("The ERP is now a new installation. Safety backup: " + r.pre_reset_backup); setTimeout(() => { window.location.href = "/setup"; }, 1500); return; }
     if (r) { toast.ok(`Factory reset done: ${r.deleted_rows} records deleted. Safety backup: ${r.pre_reset_backup}`); setReset(null); reload(); setTimeout(() => window.location.reload(), 1500); }
   };
   const isSample = !!(restore?.file?.name || restore?.name || "").toUpperCase().includes("SAMPLE");
@@ -192,11 +193,17 @@ export function Backup() {
           <h4 style={{ marginTop: 0 }}>Factory reset</h4>
           <p className="small">Deletes <b>all</b> customers, vehicles, drivers, vendors, trips, LRs, invoices, vouchers, stock, payroll and uploaded documents – for example after training with sample data. Kept: users and roles, company profile, settings and document layouts, GST treatments, compliance rules, message templates, backup history and the audit trail. A full backup is taken first, so a reset can be undone with Restore.</p>
           <Btn kind="danger" onClick={() => setReset({})}>Factory reset…</Btn>
+          {can("*") && <>
+            <h4>Reset to a new installation</h4>
+            <p className="small">Also removes the users, company profile, settings, audit trail and the licence key, so the ERP opens with the first-time setup screen – for example before it is handed over to another company. Backups are kept. The free trial does not restart.</p>
+            <Btn kind="danger" onClick={() => setReset({ full: true })}>Reset to a new installation…</Btn>
+          </>}
         </div>
       </div>
     </Card>}
-    {reset && <Modal title="Factory reset" onClose={() => setReset(null)} footer={<><Btn onClick={() => setReset(null)}>Cancel</Btn><Btn kind="danger" disabled={reset.confirm !== "RESET" || !reset.password} onClick={doReset}>Delete all business data</Btn></>}>
-      <div className="error-box"><b>All business data will be deleted.</b> Masters, transactions, accounts and uploaded documents are removed; users, company profile and settings are kept. An automatic backup is taken first.</div>
+    {reset && <Modal title={reset.full ? "Reset to a new installation" : "Factory reset"} onClose={() => setReset(null)} footer={<><Btn onClick={() => setReset(null)}>Cancel</Btn><Btn kind="danger" disabled={reset.confirm !== "RESET" || !reset.password} onClick={doReset}>{reset.full ? "Delete everything" : "Delete all business data"}</Btn></>}>
+      {reset.full ? <div className="error-box"><b>Everything will be deleted</b>: all business data, every user (including you), the company profile, settings, document layouts, audit trail and the licence key. The ERP then shows the first-time setup screen. An automatic backup is taken first and backups stay on this computer.</div>
+        : <div className="error-box"><b>All business data will be deleted.</b> Masters, transactions, accounts and uploaded documents are removed; users, company profile and settings are kept. An automatic backup is taken first.</div>}
       <Field label="Your password"><input type="password" autoComplete="current-password" value={reset.password || ""} onChange={(e) => setReset({ ...reset, password: e.target.value })} /></Field>
       <Field label="Type RESET to confirm"><input value={reset.confirm || ""} onChange={(e) => setReset({ ...reset, confirm: e.target.value })} /></Field>
     </Modal>}

@@ -91,7 +91,7 @@ def all_settings(db: Session) -> dict:
 def company(db: Session) -> Company:
     c = db.query(Company).order_by(Company.id).first()
     if c is None:
-        c = Company(legal_name="Sree Venkateswara Logistics", trade_name="Sree Venkateswara Logistics", city="Coimbatore", state="Tamil Nadu", state_code="33", fy_start_month=4)
+        c = Company(legal_name="My Company", trade_name="My Company", fy_start_month=4)  # replaced by the first-run setup
         db.add(c)
         db.flush()
     return c

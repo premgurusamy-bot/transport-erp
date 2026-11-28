@@ -45,7 +45,9 @@ Create the tables and reference data:
 
 ```bash
 alembic upgrade head
-python -m app.seed          # prints:  Username: admin  Password: Svsl@…   (shown once)
+python -m app.seed --create-admin   # prints:  Username: admin  Password: Admin@…   (shown once)
+# or: python -m app.seed, then open http://localhost:8000 on the server itself – the first-time setup screen
+# asks for the company and creates the administrator (set ALLOW_REMOTE_SETUP=true to do it from another computer)
 ```
 
 ## 4. Frontend

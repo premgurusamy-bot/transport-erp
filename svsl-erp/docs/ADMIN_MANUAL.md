@@ -98,6 +98,12 @@ See DEPLOYMENT.md. *Backup* screen: Backup now, download ZIP / pg_dump, Verify, 
   history and the audit trail; the system ledgers, document numbering and this year's compliance calendar are recreated.
   A full verified backup is taken first, so a reset can be undone with Restore. The reset is recorded in the audit trail.
   Portal and driver logins linked to deleted customers/drivers are disabled.
+* **Reset to a new installation** (Admin → Backup; Super Admin only, your password and RESET) also deletes every user,
+  the company profile, settings, document layouts, audit trail and the licence key, so the ERP opens with the
+  first-time setup screen (e.g. before the computer is handed to another company). Backups are kept and a backup is
+  taken first. The free trial does not restart.
+* **Licence** (Admin → Licence): trial days left, the installation ID to send to your provider, and where the licence
+  key is pasted. See *INSTALL-APPS.md → Licence* for what happens when a subscription ends.
 
 ## Audit
 

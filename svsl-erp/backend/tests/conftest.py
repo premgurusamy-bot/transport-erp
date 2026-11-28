@@ -11,6 +11,8 @@ os.environ["RUN_SCHEDULER"] = "false"
 os.environ["SECRET_KEY"] = "test-secret-key-" + "x" * 40
 _storage = tempfile.mkdtemp(prefix="svsl-test-")
 os.environ["STORAGE_DIR"] = _storage
+os.environ["LICENCE_DIR"] = os.path.join(_storage, "licence")
+os.environ["APRIME_INSTALL_ID"] = "test-installation"
 os.environ["FRONTEND_DIST"] = os.path.join(_storage, "no-dist")
 
 from fastapi.testclient import TestClient  # noqa: E402

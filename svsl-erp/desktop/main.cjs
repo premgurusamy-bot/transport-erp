@@ -6,8 +6,10 @@
  * (or a browser) with this computer's address, shown under Help → Phone connection.
  * "Connect to a server": opens the ERP running on another computer or in the cloud (no local data).
  *
- * Database:  %LOCALAPPDATA%\SVL ERP\Database   (kept out of OneDrive-synced folders)
- * Files and backups: Documents\SVL ERP\Files, Documents\SVL ERP\Backup   (survive uninstall/updates)
+ * Database:  %LOCALAPPDATA%\A Prime Transport ERP\Database   (kept out of OneDrive-synced folders)
+ * Files and backups: Documents\A Prime Transport ERP\Files, ...\Backup   (survive uninstall/updates)
+ * Licence:   %PROGRAMDATA%\A Prime Transport ERP\Licence   (trial start and licence key; survives uninstall)
+ * Installations made before the rename keep their "SVL ERP" folders.
  */
 const { app, BrowserWindow, Menu, dialog, ipcMain, shell, clipboard } = require("electron");
 const path = require("node:path");
@@ -24,14 +26,18 @@ const EXE = WIN ? ".exe" : "";
 const APP_PORT = Number(process.env.SVSL_PORT || 8000);
 const PG_PORT = Number(process.env.SVSL_PG_PORT || 54329);
 
-// The product was renamed from "SVL ERP" to "A Prime Transport ERP". Its settings (database password, security keys)
-// and data stay in the original "SVL ERP" folders, so an upgraded installation keeps working with its data.
-app.setPath("userData", path.join(app.getPath("appData"), "SVL ERP"));
+// The product was renamed from "SVL ERP" to "A Prime Transport ERP". An installation made before the rename keeps its
+// settings (database password, security keys) and data in the original "SVL ERP" folders; new installations use
+// "A Prime Transport ERP" folders.
+const LEGACY = fs.existsSync(path.join(app.getPath("appData"), "SVL ERP", "config.json"));
+const FOLDER = LEGACY ? "SVL ERP" : "A Prime Transport ERP";
+app.setPath("userData", path.join(app.getPath("appData"), FOLDER));
 const userData = app.getPath("userData");
 const configFile = path.join(userData, "config.json");
-const localData = path.join(process.env.LOCALAPPDATA || userData, "SVL ERP");
+const localData = path.join(process.env.LOCALAPPDATA || userData, FOLDER);
 const pgData = path.join(localData, "Database");
-const home = path.join(app.getPath("documents"), "SVL ERP");
+const home = path.join(app.getPath("documents"), FOLDER);
+const licenceDir = path.join(process.env.PROGRAMDATA || path.join(localData, ".."), "A Prime Transport ERP", "Licence");
 const filesDir = path.join(home, "Files");
 const backupDir = path.join(home, "Backup");
 const logDir = path.join(localData, "Logs");
@@ -98,6 +104,7 @@ function serverEnv() {
     DATA_ENCRYPTION_KEY: config.encKey,
     STORAGE_DIR: filesDir,
     BACKUP_DIR: backupDir,
+    LICENCE_DIR: licenceDir,
     FRONTEND_DIST: webDir,
     PG_DUMP_PATH: path.join(pgBin, "pg_dump" + EXE),
     HOST: "0.0.0.0",
@@ -137,15 +144,10 @@ async function startServerMode() {
   status("Updating the database structure…");
   const env = serverEnv();
   await run(serverExe, ["migrate"], env);
-  if (!config.seeded) {
-    const adminPassword = "Svsl@" + crypto.randomBytes(6).toString("base64url");
-    await run(serverExe, ["seed"], { ...env, INITIAL_ADMIN_PASSWORD: adminPassword });
-    config.seeded = true;
-    config.pendingAdminPassword = adminPassword;
-    writeConfig(config);
-  } else {
-    await run(serverExe, ["seed"], env); // idempotent: adds reference data introduced by updates
-  }
+  // Idempotent: reference data (and, on a new installation, nothing else – the ERP then opens its first-time setup
+  // screen, where the company and the administrator are entered).
+  await run(serverExe, ["seed"], env);
+  if (!config.seeded) { config.seeded = true; writeConfig(config); }
   status("Starting the ERP server…");
   const out = fs.openSync(path.join(logDir, "server.log"), "a");
   serverProc = spawn(serverExe, ["serve"], { env: { ...process.env, ...env }, windowsHide: true, stdio: ["ignore", out, out] });
@@ -253,7 +255,7 @@ function menu() {
         const r = await dialog.showMessageBox(win, { type: "warning", buttons: ["Cancel", "Change"], message: "Change how this computer uses A Prime Transport ERP?", detail: "No data is deleted. The app restarts and shows the setup screen." });
         if (r.response === 1) { const c = readConfig() || {}; c.chooseAgain = true; writeConfig(c); app.relaunch(); app.quit(); }
       } },
-      { label: `About A Prime Transport ERP ${VERSION}`, click: () => dialog.showMessageBox(win, { type: "info", title: "About", message: `A Prime Transport ERP ${VERSION}`, detail: `Transport management software · licensed to Sree Venkateswara Logistics\n\nMode: ${config?.mode || "-"}\nFiles & backups: ${home}\nDatabase: ${pgData}` }) },
+      { label: `About A Prime Transport ERP ${VERSION}`, click: () => dialog.showMessageBox(win, { type: "info", title: "About", message: `A Prime Transport ERP ${VERSION}`, detail: `Transport management software\n\nMode: ${config?.mode || "-"}\nFiles & backups: ${home}\nDatabase: ${pgData}` }) },
     ] },
   ]));
 }

@@ -32,15 +32,15 @@ EVENTS = {
 
 DEFAULT_TEMPLATES = [
     ("lr_generated", "in_app", "LR {lr_no} generated", "LR {lr_no} for {customer}: {from} → {to}, vehicle {vehicle}, freight ₹{amount}", "staff"),
-    ("lr_generated", "whatsapp", None, "Dear {customer}, LR {lr_no} has been booked from {from} to {to}. Vehicle: {vehicle}. – Sree Venkateswara Logistics", "customer"),
-    ("lr_generated", "email", "LR {lr_no} booked", "Dear {customer},\n\nLR {lr_no} has been booked from {from} to {to}. Vehicle: {vehicle}.\n\nRegards,\nSree Venkateswara Logistics", "customer"),
+    ("lr_generated", "whatsapp", None, "Dear {customer}, LR {lr_no} has been booked from {from} to {to}. Vehicle: {vehicle}. – {company}", "customer"),
+    ("lr_generated", "email", "LR {lr_no} booked", "Dear {customer},\n\nLR {lr_no} has been booked from {from} to {to}. Vehicle: {vehicle}.\n\nRegards,\n{company}", "customer"),
     ("vehicle_dispatched", "in_app", "Trip {trip_no} dispatched", "Vehicle {vehicle} dispatched {from} → {to} (LR {lrs})", "staff"),
     ("vehicle_dispatched", "whatsapp", None, "Dear {customer}, your consignment (LR {lrs}) has been dispatched in vehicle {vehicle} from {from} to {to}.", "customer"),
     ("vehicle_dispatched", "sms", None, "LR {lrs} dispatched in {vehicle} {from}-{to}. SVL", "customer"),
     ("delivery_completed", "in_app", "Delivered: trip {trip_no}", "LR {lrs} delivered at {to}", "staff"),
     ("delivery_completed", "whatsapp", None, "Dear {customer}, LR {lrs} has been delivered at {to}. Thank you.", "customer"),
     ("invoice_generated", "in_app", "Invoice {invoice_no} issued", "{customer}: ₹{amount}", "staff"),
-    ("invoice_generated", "email", "Invoice {invoice_no}", "Dear {customer},\n\nPlease find invoice {invoice_no} dated {date} for ₹{amount}.\n\nRegards,\nSree Venkateswara Logistics", "customer"),
+    ("invoice_generated", "email", "Invoice {invoice_no}", "Dear {customer},\n\nPlease find invoice {invoice_no} dated {date} for ₹{amount}.\n\nRegards,\n{company}", "customer"),
     ("payment_received", "in_app", "Payment received ₹{amount}", "{customer} – receipt {voucher_no}", "staff"),
     ("payment_received", "whatsapp", None, "Dear {customer}, we have received ₹{amount} (receipt {voucher_no}). Thank you.", "customer"),
     ("payment_due", "in_app", "Payment overdue: {customer}", "{count} invoice(s) overdue, ₹{amount}", "staff"),
@@ -81,6 +81,9 @@ def in_app(db: Session, title: str, body: str, link: str | None = None, severity
 
 def event(db: Session, name: str, ctx: dict, customer=None, driver=None, entity: tuple[str, int] | None = None, severity: str = "info", dedupe_key: str | None = None, link: str | None = None) -> None:
     cfg = app_settings.get(db, "notifications")
+    if "company" not in ctx:
+        c = app_settings.company(db)
+        ctx = {**ctx, "company": c.trade_name or c.legal_name}
     templates = db.execute(select(NotificationTemplate).where(NotificationTemplate.event == name, NotificationTemplate.is_active.is_(True))).scalars().all()
     for t in templates:
         subject, body = render(t.subject, ctx), render(t.body, ctx)

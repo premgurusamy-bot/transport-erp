@@ -130,6 +130,7 @@ jobs:
           $env:DATABASE_URL = "postgresql+psycopg://svsl:smoke-pass@127.0.0.1:54329/svsl_erp"
           $env:SECRET_KEY = "smoke-secret-key-0123456789-0123456789-0123456789"
           $env:STORAGE_DIR = Join-Path $tmp "svsl-files"
+          $env:LICENCE_DIR = Join-Path $tmp "svsl-licence"
           $env:FRONTEND_DIST = Join-Path $res "web"
           $env:INITIAL_ADMIN_PASSWORD = "Smoke@12345"
           $env:RUN_SCHEDULER = "false"
@@ -146,6 +147,11 @@ jobs:
           if ([System.Text.Encoding]::ASCII.GetString($pdf.Content[0..3]) -ne "%PDF") { throw "PDF failed" }
           $b = Invoke-RestMethod -Method Post http://127.0.0.1:8000/api/backups -Headers $h -ContentType application/json -Body '{}'
           if ($b.status -ne "Verified") { throw "backup failed" }
+          # licensing on Windows: installation ID from the machine ID, 15-day trial recorded outside the database
+          $lic = Invoke-RestMethod http://127.0.0.1:8000/api/licence -Headers $h
+          if ($lic.state -ne "trial" -or $lic.days_left -ne 15 -or $lic.install_id -notmatch "^[0-9A-F]{4}(-[0-9A-F]{4}){3}$") { throw "licence status wrong: $($lic | ConvertTo-Json)" }
+          if (-not (Test-Path (Join-Path $env:LICENCE_DIR "aprime-install.json"))) { throw "licence file not written" }
+          Write-Host "Installation ID $($lic.install_id), trial $($lic.days_left) days"
           $web = Invoke-WebRequest http://127.0.0.1:8000/ -UseBasicParsing
           if ($web.Content -notmatch "<div id=`"root`">") { throw "web app not served" }
           Stop-Process -Id $p.Id -Force

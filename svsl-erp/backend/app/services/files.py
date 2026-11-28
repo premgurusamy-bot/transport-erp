@@ -267,8 +267,12 @@ RESET_KEEP = {"users", "roles", "user_sessions", "login_history", "backup_record
               "compliance_rules", "notification_templates", "leave_types", "departments", "statutory_registers", "account_groups"}
 
 
-def factory_reset(db: Session, user) -> dict:
+def factory_reset(db: Session, user, full: bool = False) -> dict:
     """Delete all business data (masters and transactions), keeping users, company profile and settings.
+
+    full=True ("reset to a new installation", e.g. before the ERP is handed to another company) also removes the users,
+    company profile, settings, audit trail and the licence key: the ERP then opens with the first-run setup screen.
+    Backup history is kept so the previous data can still be restored. The free trial does not restart.
 
     A full verified backup is taken first, so a reset can be undone with Restore. Rows are deleted table by table in
     dependency order (never TRUNCATE ... CASCADE), so nothing outside the list above can be removed by accident.
@@ -278,8 +282,17 @@ def factory_reset(db: Session, user) -> dict:
 
     pre = create_backup(db, user, "pre_reset", include_files=True, note="Automatic backup before factory reset")
     db.commit()
-    tables = [t for t in Base.metadata.sorted_tables if t.name not in RESET_KEEP]
+    keep = {"backup_records"} if full else RESET_KEEP
+    tables = [t for t in Base.metadata.sorted_tables if t.name not in keep]
     counts: dict[str, int] = {}
+    licence_state = None
+    if full:
+        from ..models import AppSetting
+
+        row = db.get(AppSetting, "licence")
+        licence_state = dict(row.value) if row and isinstance(row.value, dict) else None
+        if row is not None:
+            db.expunge(row)  # the row is deleted with the other settings and written again below
     try:
         for u in db.query(User):  # logins linked to customers / drivers that are about to be deleted
             if u.customer_id or u.driver_id:
@@ -293,7 +306,15 @@ def factory_reset(db: Session, user) -> dict:
             if "id" in cols and cols["id"].primary_key and isinstance(cols["id"].type, Integer):
                 db.execute(text(f"SELECT setval(pg_get_serial_sequence('\"{t.name}\"', 'id'), 1, false)"))
         bootstrap(db)  # system ledgers, document numbering, compliance calendar for the current year
-        log(db, user, "factory_reset", "system", None, None, {"deleted_rows": sum(counts.values()), "tables": len([c for c in counts.values() if c]), "pre_reset_backup": pre.file_name})
+        if full:
+            from ..models import AppSetting
+            from . import licensing
+
+            if licence_state:  # keeps the trial start date; the key itself is removed below
+                db.add(AppSetting(key="licence", value=licence_state))
+                db.flush()
+            licensing.remove_key(db)
+        log(db, user, "factory_reset_full" if full else "factory_reset", "system", None, None, {"deleted_rows": sum(counts.values()), "tables": len([c for c in counts.values() if c]), "pre_reset_backup": pre.file_name})
         db.commit()
     except Exception:
         db.rollback()
@@ -303,4 +324,4 @@ def factory_reset(db: Session, user) -> dict:
         if f.is_file():
             f.unlink()
             removed += 1
-    return {"deleted_rows": sum(counts.values()), "deleted_files": removed, "pre_reset_backup": pre.file_name}
+    return {"deleted_rows": sum(counts.values()), "deleted_files": removed, "pre_reset_backup": pre.file_name, "full": full}

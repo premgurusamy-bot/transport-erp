@@ -73,8 +73,13 @@ REGISTERS = [
 ]
 
 
-def bootstrap(db: Session, admin_password: str | None = None) -> str | None:
-    """Idempotent. Returns the generated admin password if a new admin user was created."""
+def bootstrap(db: Session, admin_password: str | None = None, create_admin: bool = False) -> str | None:
+    """Idempotent. Returns the generated admin password if a new admin user was created.
+
+    With no users yet, an administrator is created only when a password is given (INITIAL_ADMIN_PASSWORD, for server
+    installs) or create_admin is set (a random password is then generated). Otherwise the installation stays in
+    first-run mode: opening the ERP shows the setup screen, where the company and the first administrator are entered.
+    """
     acc.ensure_chart(db)
     roles = {r.name: r for r in db.execute(select(Role)).scalars()}
     for name, (desc, perms) in DEFAULT_ROLES.items():
@@ -115,9 +120,10 @@ def bootstrap(db: Session, admin_password: str | None = None) -> str | None:
     generated = None
     if not db.execute(select(User)).first():
         pw = admin_password or os.environ.get("INITIAL_ADMIN_PASSWORD")
-        if not pw:
-            pw = generated = "Svsl@" + secrets.token_urlsafe(9)
-        db.add(User(username="admin", full_name="System Administrator", password_hash=hash_password(pw), role_id=roles["Super Admin"].id, must_change_password=True))
+        if not pw and create_admin:
+            pw = generated = "Admin@" + secrets.token_urlsafe(9)
+        if pw:
+            db.add(User(username="admin", full_name="System Administrator", password_hash=hash_password(pw), role_id=roles["Super Admin"].id, must_change_password=True))
     from .services.people import generate_compliance
 
     generate_compliance(db, fy)
@@ -182,12 +188,15 @@ def demo(db: Session) -> None:
 def main() -> None:
     db = SessionLocal()
     try:
-        pw = bootstrap(db)
+        pw = bootstrap(db, create_admin="--create-admin" in sys.argv)
         if "--demo" in sys.argv:
             demo(db)
         db.commit()
         if pw:
             print("\n  Initial administrator created.\n  Username: admin\n  Password:", pw, "\n  You must change it at first sign-in.\n")
+        elif not db.execute(select(User)).first():
+            print("\n  First-run mode: open the ERP in a browser on this computer to enter the company and create the administrator.\n"
+                  "  (On a cloud server set INITIAL_ADMIN_PASSWORD, or ALLOW_REMOTE_SETUP=true while you finish setup.)\n")
         print("Bootstrap complete." + (" DEMO data loaded." if "--demo" in sys.argv else ""))
     finally:
         db.close()

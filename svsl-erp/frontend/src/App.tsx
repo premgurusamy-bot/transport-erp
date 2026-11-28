@@ -2,6 +2,8 @@ import React from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import Layout from "./components/Layout";
 import ImportPage from "./pages/Import";
+import Setup from "./pages/Setup";
+import LicencePage from "./pages/Licence";
 import { Toasts } from "./components/ui";
 import { auth } from "./lib/api";
 import { Accounts, Admin, Auth, Billing, Business, Dashboard, Fleet, LR, Masters, Portal, Reports, Trips } from "./pages";
@@ -24,6 +26,7 @@ export default function App() {
   return <>
     <Routes>
       <Route path="/login" element={<Auth.Login />} />
+      <Route path="/setup" element={<Setup />} />
       <Route path="/portal" element={<Protected><Portal.CustomerPortal /></Protected>} />
       <Route path="/driver" element={<Protected><Portal.DriverApp /></Protected>} />
       <Route element={<Protected><StaffOnly><Layout /></StaffOnly></Protected>}>
@@ -68,6 +71,7 @@ export default function App() {
         <Route path="/users" element={<Admin.Users />} />
         <Route path="/audit" element={<Admin.Audit />} />
         <Route path="/backup" element={<Admin.Backup />} />
+        <Route path="/licence" element={<LicencePage />} />
       </Route>
       <Route path="/profile" element={<Protected><div className="solo"><Auth.Profile /></div></Protected>} />
       <Route path="*" element={<Navigate to="/" replace />} />

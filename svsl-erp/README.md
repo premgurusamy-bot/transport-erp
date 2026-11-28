@@ -1,9 +1,9 @@
 # A Prime Transport ERP
 
-Integrated transport & logistics ERP, deployed for **Sree Venkateswara Logistics**.
+Integrated transport & logistics ERP for transport companies – each customer enters their own company at first start.
 
 A complete ERP for goods transportation, fleet operations, industrial logistics and godown management,
-built for Sree Venkateswara Logistics, Coimbatore (Tamil Nadu). INR, Indian number/date formats,
+built for Indian transport businesses. INR, Indian number/date formats,
 GST, English + Tamil interface.
 
 | Part | Technology |
@@ -40,7 +40,7 @@ cd svsl-erp/backend
 cp .env.example .env            # set DATABASE_URL, SECRET_KEY, DATA_ENCRYPTION_KEY
 pip install -r requirements.txt
 alembic upgrade head
-python -m app.seed              # prints the one-time admin password
+python -m app.seed --create-admin   # prints the one-time admin password (or omit the flag and use the setup screen)
 cd ../frontend && npm ci && npm run build
 cd ../backend && uvicorn app.main:app --port 8000
 # open http://localhost:8000  – sign in as "admin" and change the password

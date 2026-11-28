@@ -17,4 +17,4 @@ COPY --from=web /web/dist /app/frontend/dist
 RUN useradd -r -u 1001 svsl && mkdir -p /data && chown svsl /data
 USER svsl
 EXPOSE 8000
-CMD ["sh", "-c", "alembic upgrade head && python -m app.seed && uvicorn app.main:app --host 0.0.0.0 --port 8000 --proxy-headers --forwarded-allow-ips='*'"]
+CMD ["sh", "-c", "alembic upgrade head && python -m app.seed --create-admin && uvicorn app.main:app --host 0.0.0.0 --port 8000 --proxy-headers --forwarded-allow-ips='*'"]

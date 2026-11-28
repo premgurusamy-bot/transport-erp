@@ -59,3 +59,39 @@ def test_factory_reset_sample_backup_and_restore(client, admin):
     # and the sample can be removed again
     assert client.post("/api/system/factory-reset", json={"confirm": "RESET", "password": ADMIN_PW}, headers=admin).status_code == 200
     assert _count(client, admin, "customers") == 0 and _count(client, admin, "lr") == 0
+
+
+def test_reset_to_new_installation_and_first_run_setup(client, admin, monkeypatch):
+    from app.services import licensing
+
+    # only a Super Admin, with password and confirmation
+    assert client.post("/api/system/factory-reset", json={"confirm": "RESET", "password": "wrong-password1", "full": True}, headers=admin).status_code == 403
+    first_seen = client.get("/api/licence", headers=admin).json()["first_seen"]
+    r = client.post("/api/system/factory-reset", json={"confirm": "RESET", "password": ADMIN_PW, "full": True}, headers=admin)
+    assert r.status_code == 200, r.text
+    assert r.json()["full"] and r.json()["pre_reset_backup"]
+    assert client.get("/api/auth/me", headers=admin).status_code == 401  # users are gone
+    st = client.get("/api/setup/status").json()
+    assert st["setup_needed"] is True and st["company"] == ""
+    assert client.post("/api/auth/login", json={"username": "admin", "password": ADMIN_PW}).status_code == 401
+
+    body = {"company": {"legal_name": "New Customer Transports", "state_code": "29", "gstin": "", "phone": "080 1234567"},
+            "admin": {"full_name": "New Owner", "username": "owner", "password": ADMIN_PW}}
+    # the test client is not on this computer: refused unless remote setup is allowed
+    assert client.post("/api/setup", json=body).status_code == 403
+    monkeypatch.setenv("ALLOW_REMOTE_SETUP", "true")
+    assert client.post("/api/setup", json={**body, "admin": {**body["admin"], "password": "short"}}).status_code == 400
+    r = client.post("/api/setup", json=body)
+    assert r.status_code == 200, r.text
+    h = {"Authorization": f"Bearer {r.json()['token']}"}
+    assert client.get("/api/auth/me", headers=h).json()["username"] == "owner"
+    c = client.get("/api/company", headers=h).json()
+    assert c["legal_name"] == "New Customer Transports" and c["state"] == "Karnataka"
+    st = client.get("/api/setup/status").json()
+    assert st["setup_needed"] is False and st["company"] == "New Customer Transports" and "states" not in st
+    assert client.post("/api/setup", json=body).status_code == 409  # cannot be run twice
+    assert client.get("/api/accounts/summary", headers=h).json()["books_balanced"]
+    lic = client.get("/api/licence", headers=h).json()
+    assert lic["state"] == "trial" and lic["first_seen"] == first_seen and lic["licence_id"] is None  # the trial does not restart
+    assert licensing.status(fresh=True)["state"] == "trial"
+    assert client.get("/api/audit?action=setup", headers=h).json()["total"] == 1

@@ -147,6 +147,15 @@ def _check_role_assignment(db: Session, user: CurrentUser, role_id: int) -> Role
     return role
 
 
+def _licence_users(db: Session) -> None:
+    from ..services import licensing
+
+    try:
+        licensing.staff_user_limit_check(db)
+    except ValueError as e:
+        raise AppError(str(e), 402) from None
+
+
 @router.post("/users")
 def create_user(data: dict, db: Session = Depends(get_db), user: CurrentUser = Depends(require("users:write"))):
     username = (data.get("username") or "").strip().lower()
@@ -158,6 +167,8 @@ def create_user(data: dict, db: Session = Depends(get_db), user: CurrentUser = D
     if problem:
         raise AppError(problem)
     role = _check_role_assignment(db, user, data.get("role_id"))
+    if not data.get("customer_id") and not data.get("driver_id"):
+        _licence_users(db)
     if role.name == "Customer" and not data.get("customer_id"):
         raise AppError("Select the customer this portal user belongs to")
     if role.name == "Driver" and not data.get("driver_id"):
@@ -200,6 +211,8 @@ def update_user(uid: int, data: dict, db: Session = Depends(get_db), user: Curre
     if "is_active" in data:
         if uid == user.id and not data["is_active"]:
             raise AppError("You cannot disable your own account")
+        if data["is_active"] and not u.is_active and not (u.customer_id or u.driver_id):
+            _licence_users(db)
         u.is_active = bool(data["is_active"])
         if not u.is_active:
             for s in db.query(UserSession).filter(UserSession.user_id == u.id, UserSession.revoked_at.is_(None)):
@@ -423,7 +436,10 @@ def factory_reset(data: dict, db: Session = Depends(get_db), user: CurrentUser =
     me = db.get(User, user.id)
     if not me or not verify_password(str((data or {}).get("password") or ""), me.password_hash):
         raise AppError("Your password is not correct", 403)
-    return files.factory_reset(db, user)
+    full = bool((data or {}).get("full"))
+    if full and "*" not in user.permissions:
+        raise AppError("Only a Super Admin can reset the ERP to a new installation", 403)
+    return files.factory_reset(db, user, full=full)
 
 
 # ------------------------------------------------------------------ document layouts

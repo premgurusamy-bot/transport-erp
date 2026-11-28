@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
+import { useAppInfo, useLicence } from "../lib/appinfo";
 import { useNavigate } from "react-router-dom";
 import { api, auth } from "../lib/api";
 import { changeServer, isAndroidApp } from "../lib/native";
@@ -17,6 +18,8 @@ export function Login() {
   const [f, setF] = useState({ username: "", password: "", otp: "" });
   const [needOtp, setNeedOtp] = useState(false);
   const [err, setErr] = useState("");
+  const info = useAppInfo();
+  useEffect(() => { if (info?.setup_needed) nav("/setup", { replace: true }); }, [info]);
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErr("");
@@ -32,7 +35,7 @@ export function Login() {
   return <div className="login-bg">
     <form className="login" onSubmit={submit}>
       <div className="login-brand"><img src="/brand/logo-wordmark.png" alt="A Prime Transport ERP – Transport Management Software" /></div>
-      <h1>Sree Venkateswara Logistics</h1>
+      {info?.company && <h1>{info.company}</h1>}
       <p className="muted">Sign in to continue</p>
       <Field label={t("Username")}><input autoFocus autoComplete="username" value={f.username} onChange={(e) => setF({ ...f, username: e.target.value })} /></Field>
       <Field label={t("Password")}><input type="password" autoComplete="current-password" value={f.password} onChange={(e) => setF({ ...f, password: e.target.value })} /></Field>
@@ -46,6 +49,9 @@ export function Login() {
 
 /** About & licences: the open-source components the app is built with, and their licence texts. */
 function AboutCard() {
+  const lic = useLicence();
+  const info = useAppInfo();
+  const to = lic?.licensed_to || info?.company;
   const [text, setText] = useState<string | null>(null);
   const [q, setQ] = useState("");
   const open = async () => {
@@ -54,7 +60,7 @@ function AboutCard() {
   const shown = text && q ? text.split(/\n-{20,}\n/).filter((b) => b.toLowerCase().includes(q.toLowerCase())).join("\n" + "-".repeat(78) + "\n") : text;
   return <Card title="About & licences" actions={text ? <a className="small" href="/third-party-licenses.txt" target="_blank" rel="noreferrer">Open as file</a> : null}>
     <div className="about-brand"><img src="/brand/poster.jpg" alt="A Prime Transport ERP – Bookings & LR, Trips & Operations, Fleet, Warehouse & Inventory, Accounts & GST, Reports & Analytics" /></div>
-    <p><b>A Prime Transport ERP</b> version 1.0.0 – integrated transport management software, licensed to Sree Venkateswara Logistics.</p>
+    <p><b>A Prime Transport ERP</b> version 1.0.0 – integrated transport management software{to ? <>, {lic?.licensed_to ? "licensed" : "in use"} by <b>{to}</b></> : ""}.</p>
     <p className="small muted">This software uses open-source components (for example React, FastAPI, SQLAlchemy, PostgreSQL, ReportLab, Electron and Capacitor). They belong to their authors and are used under their licences, whose full texts are listed here.</p>
     {text === null ? <Btn onClick={open}>Show third-party licences</Btn> : <>
       <input type="search" placeholder="Search a component…" value={q} onChange={(e) => setQ(e.target.value)} style={{ width: "100%", marginBottom: 8 }} />

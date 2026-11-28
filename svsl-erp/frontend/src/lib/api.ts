@@ -37,6 +37,7 @@ async function request(method: string, url: string, body?: any, isForm = false):
   }
   const ct = res.headers.get("content-type") || "";
   const data = ct.includes("application/json") ? await res.json() : await res.blob();
+  if (res.status === 402) window.dispatchEvent(new Event("aprime:licence"));
   if (!res.ok) throw new ApiError((data && data.detail) || `Request failed (${res.status})`, res.status);
   return data;
 }
