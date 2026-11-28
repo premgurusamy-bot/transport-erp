@@ -1,6 +1,6 @@
 # /etc/systemd/system/svsl-erp.service  →  systemctl enable --now svsl-erp
 [Unit]
-Description=SVL Transport ERP
+Description=A Prime Transport ERP
 After=network.target postgresql.service
 
 [Service]

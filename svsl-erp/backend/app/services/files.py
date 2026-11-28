@@ -98,9 +98,9 @@ def _alembic_revision(db: Session) -> str | None:
 
 def create_backup(db: Session, user, kind: str = "manual", include_files: bool = True, note: str | None = None, sample: bool = False) -> BackupRecord:
     ts = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
-    name = f"SVL_ERP_SAMPLE_DATA_{ts}.zip" if sample else f"SVL_ERP_BACKUP_{ts}_{kind}.zip"
+    name = f"A_PRIME_ERP_SAMPLE_DATA_{ts}.zip" if sample else f"A_PRIME_ERP_BACKUP_{ts}_{kind}.zip"
     path = backups_dir() / name
-    manifest = {"app": "SVL ERP", "app_version": APP_VERSION, "created_at": datetime.now(timezone.utc).isoformat(), "kind": kind, "alembic_revision": _alembic_revision(db), "tables": {}}
+    manifest = {"app": "A Prime Transport ERP", "app_version": APP_VERSION, "created_at": datetime.now(timezone.utc).isoformat(), "kind": kind, "alembic_revision": _alembic_revision(db), "tables": {}}
     if sample:
         # restoring a sample replaces business data only: the restoring server keeps its own users, company profile and settings
         manifest["sample"] = True
@@ -139,7 +139,7 @@ def _pg_dump(ts: str, kind: str) -> str | None:
     if not shutil.which(s.pg_dump_path) and not Path(s.pg_dump_path).exists():
         return None
     url = s.database_url.replace("postgresql+psycopg://", "postgresql://")
-    out = backups_dir() / f"SVL_ERP_DB_{ts}_{kind}.dump"
+    out = backups_dir() / f"A_PRIME_ERP_DB_{ts}_{kind}.dump"
     try:
         subprocess.run([s.pg_dump_path, "--format=custom", "--no-owner", f"--file={out}", url], check=True, capture_output=True, timeout=600)
         return out.name

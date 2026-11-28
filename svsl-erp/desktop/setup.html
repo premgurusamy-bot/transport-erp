@@ -1,19 +1,21 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8" /><title>SVL ERP – Setup</title>
+<html lang="en"><head><meta charset="utf-8" /><title>A Prime Transport ERP – Setup</title>
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'unsafe-inline'; script-src 'unsafe-inline'" />
 <style>
-  body { margin: 0; font-family: "Segoe UI", Arial, sans-serif; background: #0f4c81; min-height: 100vh; display: flex; align-items: center; justify-content: center; }
+  body { margin: 0; font-family: "Segoe UI", Arial, sans-serif; background: radial-gradient(900px 500px at 50% 0%, #1f4a97, transparent), linear-gradient(160deg, #0b1f4d, #12306a); min-height: 100vh; display: flex; align-items: center; justify-content: center; }
   .card { background: #fff; border-radius: 14px; padding: 28px; width: 560px; box-shadow: 0 20px 50px rgba(0,0,0,.3); }
-  h1 { margin: 0; color: #0f4c81; font-size: 22px; } p { color: #555; line-height: 1.45; }
+  h1 { margin: 0; color: #12306a; font-size: 22px; text-align: center; } .brand { display: block; width: 92px; height: 92px; margin: 0 auto 10px; } .for { text-align: center; color: #8a6d1f; font-weight: 600; margin: 2px 0 6px; } p { color: #555; line-height: 1.45; }
   .opt { border: 2px solid #dfe4ea; border-radius: 10px; padding: 14px; margin: 10px 0; cursor: pointer; display: block; }
-  .opt:has(input:checked) { border-color: #0f4c81; background: #f1f6fb; }
+  .opt:has(input:checked) { border-color: #12306a; background: #f3f6fc; }
   .opt b { font-size: 15px; } .opt small { display: block; color: #666; margin: 4px 0 0 24px; }
   input[type=text] { width: 100%; box-sizing: border-box; padding: 10px; font-size: 15px; border: 1px solid #c9d2de; border-radius: 8px; margin-top: 8px; }
-  button { margin-top: 14px; width: 100%; padding: 13px; font-size: 16px; font-weight: 600; border: none; border-radius: 8px; background: #0f4c81; color: #fff; cursor: pointer; }
+  button { margin-top: 14px; width: 100%; padding: 13px; font-size: 16px; font-weight: 600; border: none; border-radius: 8px; background: #12306a; color: #fff; cursor: pointer; }
   .msg { color: #b3261e; margin-top: 10px; min-height: 18px; }
 </style></head>
 <body><div class="card">
-  <h1>Sree Venkateswara Logistics ERP</h1>
+  <img class="brand" src="emblem.png" alt="A Prime Transport ERP" />
+  <h1>A Prime Transport ERP</h1>
+  <div class="for">for Sree Venkateswara Logistics</div>
   <p>How will this computer use the ERP?</p>
   <label class="opt"><input type="radio" name="mode" value="server" checked /> <b>This computer is the main ERP computer</b>
     <small>Recommended for the office computer. The database and all data are kept on this computer; other computers and phones connect to it. Keep it switched on during working hours.</small></label>
@@ -35,7 +37,7 @@
       var u = url.trim(); if (!/^https?:\/\//i.test(u)) u = "http://" + u; if (/^http:/i.test(u) && !/:\d+$/.test(u.replace(/^https?:\/\//i, "").split("/")[0])) u += ":8000";
       msg.style.color = "#555"; msg.textContent = "Checking " + u + " …";
       var t = await window.svsl.testUrl(u);
-      if (!t.ok) { msg.style.color = "#b3261e"; msg.textContent = t.message + ". Check the address and that SVL ERP is open on that computer."; return; }
+      if (!t.ok) { msg.style.color = "#b3261e"; msg.textContent = t.message + ". Check the address and that A Prime Transport ERP is open on that computer."; return; }
     }
     var r = await window.svsl.save({ mode: mode, url: url });
     if (r && !r.ok) { msg.textContent = r.message; }

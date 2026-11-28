@@ -1,7 +1,7 @@
 {
  "openapi": "3.1.0",
  "info": {
-  "title": "Sree Venkateswara Logistics ERP",
+  "title": "A Prime Transport ERP",
   "description": "Transport & Logistics ERP \u2013 REST API. Authenticate with POST /api/auth/login and send `Authorization: Bearer <token>`.",
   "version": "1.0.0"
  },

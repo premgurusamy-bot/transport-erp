@@ -1,4 +1,6 @@
-# Sree Venkateswara Logistics – Transport & Logistics ERP
+# A Prime Transport ERP
+
+Integrated transport & logistics ERP, deployed for **Sree Venkateswara Logistics**.
 
 A complete ERP for goods transportation, fleet operations, industrial logistics and godown management,
 built for Sree Venkateswara Logistics, Coimbatore (Tamil Nadu). INR, Indian number/date formats,
@@ -25,8 +27,8 @@ svsl-erp/
 
 ## Install as apps
 
-* **Windows:** `SVL-ERP-Setup-1.0.0.exe` – one installer with the database and server included; the office PC becomes the ERP server.
-* **Android:** `SVL-ERP.apk` – connects phones to that server (drivers, customers, staff).
+* **Windows:** `A-Prime-Transport-ERP-Setup-1.0.0.exe` – one installer with the database and server included; the office PC becomes the ERP server.
+* **Android:** `A-Prime-Transport-ERP.apk` – connects phones to that server (drivers, customers, staff).
 
 Both are on the repository's **Releases** page, built by GitHub Actions. Step-by-step: [docs/INSTALL-APPS.md](docs/INSTALL-APPS.md).
 

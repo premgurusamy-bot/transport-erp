@@ -85,11 +85,11 @@ See DEPLOYMENT.md. *Backup* screen: Backup now, download ZIP / pg_dump, Verify, 
 *Export all data* gives one Excel workbook with every table (secrets excluded).
 
 ## Sample data & factory reset
-* **Sample data:** every release includes `SVL_ERP_SAMPLE_DATA.zip` – three months of clearly marked DEMO customers, vehicles
+* **Sample data:** every release includes `A_PRIME_ERP_SAMPLE_DATA.zip` – three months of clearly marked DEMO customers, vehicles
   (state code 00), drivers, trips, LRs, invoices, receipts, maintenance, stock and payroll, with balanced books. Load it with
   **Admin → Backup → Restore from file** and type RESTORE. Restoring a sample replaces all business data, but always keeps
   your users and passwords, company profile and settings. An automatic backup is taken first.
-  To build the file yourself on an empty database: `svsl-server sample-backup SVL_ERP_SAMPLE_DATA.zip` (or
+  To build the file yourself on an empty database: `svsl-server sample-backup A_PRIME_ERP_SAMPLE_DATA.zip` (or
   `python svsl_server.py sample-backup …` in `backend/`).
 * **Factory reset** (Admin → Backup → Factory reset…; needs the *Restore backups* permission, your password and typing RESET)
   deletes all customers, vehicles, drivers, vendors, routes, trips, LRs, invoices, vouchers and ledgers, stock, HR/payroll

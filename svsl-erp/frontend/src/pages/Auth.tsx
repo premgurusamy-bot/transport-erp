@@ -31,9 +31,9 @@ export function Login() {
   };
   return <div className="login-bg">
     <form className="login" onSubmit={submit}>
-      <img src="/api/company/logo" alt="" className="login-logo" onError={(e) => ((e.target as HTMLImageElement).style.display = "none")} />
+      <div className="login-brand"><img src="/brand/logo-wordmark.png" alt="A Prime Transport ERP – Transport Management Software" /></div>
       <h1>Sree Venkateswara Logistics</h1>
-      <p className="muted">Transport & Logistics ERP · Coimbatore</p>
+      <p className="muted">Sign in to continue</p>
       <Field label={t("Username")}><input autoFocus autoComplete="username" value={f.username} onChange={(e) => setF({ ...f, username: e.target.value })} /></Field>
       <Field label={t("Password")}><input type="password" autoComplete="current-password" value={f.password} onChange={(e) => setF({ ...f, password: e.target.value })} /></Field>
       {needOtp && <Field label="Authenticator code"><input inputMode="numeric" maxLength={6} value={f.otp} onChange={(e) => setF({ ...f, otp: e.target.value })} autoFocus /></Field>}
@@ -53,7 +53,8 @@ function AboutCard() {
   };
   const shown = text && q ? text.split(/\n-{20,}\n/).filter((b) => b.toLowerCase().includes(q.toLowerCase())).join("\n" + "-".repeat(78) + "\n") : text;
   return <Card title="About & licences" actions={text ? <a className="small" href="/third-party-licenses.txt" target="_blank" rel="noreferrer">Open as file</a> : null}>
-    <p><b>SVL ERP</b> version 1.0.0 – Transport & Logistics ERP for Sree Venkateswara Logistics.</p>
+    <div className="about-brand"><img src="/brand/poster.jpg" alt="A Prime Transport ERP – Bookings & LR, Trips & Operations, Fleet, Warehouse & Inventory, Accounts & GST, Reports & Analytics" /></div>
+    <p><b>A Prime Transport ERP</b> version 1.0.0 – integrated transport management software, licensed to Sree Venkateswara Logistics.</p>
     <p className="small muted">This software uses open-source components (for example React, FastAPI, SQLAlchemy, PostgreSQL, ReportLab, Electron and Capacitor). They belong to their authors and are used under their licences, whose full texts are listed here.</p>
     {text === null ? <Btn onClick={open}>Show third-party licences</Btn> : <>
       <input type="search" placeholder="Search a component…" value={q} onChange={(e) => setQ(e.target.value)} style={{ width: "100%", marginBottom: 8 }} />

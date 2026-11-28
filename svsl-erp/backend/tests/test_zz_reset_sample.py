@@ -47,7 +47,7 @@ def test_factory_reset_sample_backup_and_restore(client, admin):
     assert client.post("/api/system/factory-reset", json={"confirm": "RESET", "password": ADMIN_PW}, headers=admin).status_code == 200
     client.put("/api/company", json={"legal_name": "Company Kept Through Sample Restore"}, headers=admin)
     with open(sample_path, "rb") as fh:
-        r = client.post("/api/backups/restore", data={"confirm": "RESTORE", "keep_users": "false"}, files={"file": ("SVL_ERP_SAMPLE_DATA.zip", fh, "application/zip")}, headers=admin)
+        r = client.post("/api/backups/restore", data={"confirm": "RESTORE", "keep_users": "false"}, files={"file": ("A_PRIME_ERP_SAMPLE_DATA.zip", fh, "application/zip")}, headers=admin)
     assert r.status_code == 200, r.text
     assert r.json()["sample"] is True
     admin = login(client, "admin", ADMIN_PW)

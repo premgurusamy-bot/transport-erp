@@ -331,11 +331,11 @@ def test_channel(data: dict, user: CurrentUser = Depends(require("settings:write
     if not to:
         raise AppError("Enter a recipient")
     if ch == "email":
-        status, err = channels.send_email(to, "SVL ERP test message", "This is a test message from the ERP.")
+        status, err = channels.send_email(to, "A Prime Transport ERP test message", "This is a test message from the ERP.")
     elif ch == "whatsapp":
         status, err = channels.send_whatsapp(to, "This is a test message from the ERP.", data.get("template"))
     elif ch == "sms":
-        status, err = channels.send_sms(to, "SVL ERP test message")
+        status, err = channels.send_sms(to, "A Prime Transport ERP test message")
     else:
         raise AppError("Unknown channel")
     return {"status": status, "error": err}

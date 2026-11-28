@@ -41,7 +41,7 @@ def main() -> None:
     elif cmd == "sample-backup":
         import shutil
 
-        out = Path(sys.argv[2] if len(sys.argv) > 2 else "SVL_ERP_SAMPLE_DATA.zip").resolve()
+        out = Path(sys.argv[2] if len(sys.argv) > 2 else "A_PRIME_ERP_SAMPLE_DATA.zip").resolve()
         migrate()
         from app.core.deps import CurrentUser
         from app.db import SessionLocal

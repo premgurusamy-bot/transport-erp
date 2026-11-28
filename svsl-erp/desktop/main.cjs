@@ -1,5 +1,5 @@
 /**
- * SVL ERP – Windows desktop app (Electron).
+ * A Prime Transport ERP – Windows desktop app (Electron).
  *
  * "This computer is the server" (default): starts a private PostgreSQL database and the ERP server that are
  * bundled with the installer, then shows the ERP in a window. Phones on the same Wi-Fi use the Android app
@@ -24,6 +24,9 @@ const EXE = WIN ? ".exe" : "";
 const APP_PORT = Number(process.env.SVSL_PORT || 8000);
 const PG_PORT = Number(process.env.SVSL_PG_PORT || 54329);
 
+// The product was renamed from "SVL ERP" to "A Prime Transport ERP". Its settings (database password, security keys)
+// and data stay in the original "SVL ERP" folders, so an upgraded installation keeps working with its data.
+app.setPath("userData", path.join(app.getPath("appData"), "SVL ERP"));
 const userData = app.getPath("userData");
 const configFile = path.join(userData, "config.json");
 const localData = path.join(process.env.LOCALAPPDATA || userData, "SVL ERP");
@@ -149,7 +152,7 @@ async function startServerMode() {
   serverProc.on("exit", (code) => {
     log(`server exited ${code}`);
     serverProc = null;
-    if (!quitting) dialog.showErrorBox("SVL ERP", `The ERP server stopped unexpectedly (code ${code}). Restart the app. Log: ${logDir}`);
+    if (!quitting) dialog.showErrorBox("A Prime Transport ERP", `The ERP server stopped unexpectedly (code ${code}). Restart the app. Log: ${logDir}`);
   });
   await waitForHealth(`http://127.0.0.1:${APP_PORT}`, 90000);
   await win.loadURL(`http://localhost:${APP_PORT}/`);
@@ -184,7 +187,7 @@ async function launch() {
     await startServerMode();
   } catch (e) {
     log(`START FAILED ${e.stack || e}`);
-    const r = await dialog.showMessageBox(win, { type: "error", title: "SVL ERP could not start", buttons: ["Open log folder", "Close"], message: "SVL ERP could not start.", detail: String(e.message || e) });
+    const r = await dialog.showMessageBox(win, { type: "error", title: "A Prime Transport ERP could not start", buttons: ["Open log folder", "Close"], message: "A Prime Transport ERP could not start.", detail: String(e.message || e) });
     if (r.response === 0) await shell.openPath(logDir);
   }
 }
@@ -221,14 +224,14 @@ function phoneInfo() {
     : config?.url || "-";
   dialog.showMessageBox(win, {
     type: "info", title: "Phone connection",
-    message: config?.mode === "server" ? `On phones, open the SVL ERP app and enter:\n\n${text}` : `This computer uses the ERP server at\n${text}`,
-    detail: config?.mode === "server" ? "The phone must be on the same Wi-Fi/network as this computer, and this computer must stay switched on with SVL ERP open. If phones cannot connect, allow \"SVL ERP\" through Windows Firewall (the installer adds the rule for private networks)." : "",
+    message: config?.mode === "server" ? `On phones, open the A Prime Transport ERP app and enter:\n\n${text}` : `This computer uses the ERP server at\n${text}`,
+    detail: config?.mode === "server" ? "The phone must be on the same Wi-Fi/network as this computer, and this computer must stay switched on with A Prime Transport ERP open. If phones cannot connect, allow \"A Prime Transport ERP\" through Windows Firewall (the installer adds the rule for private networks)." : "",
   });
 }
 
 async function saveKeys() {
   if (config?.mode !== "server") return dialog.showMessageBox(win, { message: "Security keys exist only on the server computer." });
-  const r = await dialog.showSaveDialog(win, { title: "Save security keys", defaultPath: path.join(app.getPath("documents"), "SVL-ERP-security-keys.json") });
+  const r = await dialog.showSaveDialog(win, { title: "Save security keys", defaultPath: path.join(app.getPath("documents"), "A-Prime-ERP-security-keys.json") });
   if (r.canceled || !r.filePath) return;
   fs.writeFileSync(r.filePath, JSON.stringify({ note: "Keep this file private and with your backups. Needed to restore encrypted fields (Aadhaar, bank numbers) on another computer.", SECRET_KEY: config.secretKey, DATA_ENCRYPTION_KEY: config.encKey, saved: new Date().toISOString() }, null, 2));
   dialog.showMessageBox(win, { message: "Security keys saved.", detail: r.filePath });
@@ -247,10 +250,10 @@ function menu() {
       { label: "Phone connection", click: phoneInfo },
       { label: "Open log folder", click: () => { fs.mkdirSync(logDir, { recursive: true }); shell.openPath(logDir); } },
       { label: "Change mode / server address…", click: async () => {
-        const r = await dialog.showMessageBox(win, { type: "warning", buttons: ["Cancel", "Change"], message: "Change how this computer uses SVL ERP?", detail: "No data is deleted. The app restarts and shows the setup screen." });
+        const r = await dialog.showMessageBox(win, { type: "warning", buttons: ["Cancel", "Change"], message: "Change how this computer uses A Prime Transport ERP?", detail: "No data is deleted. The app restarts and shows the setup screen." });
         if (r.response === 1) { const c = readConfig() || {}; c.chooseAgain = true; writeConfig(c); app.relaunch(); app.quit(); }
       } },
-      { label: `About SVL ERP ${VERSION}`, click: () => dialog.showMessageBox(win, { type: "info", title: "About", message: `SVL ERP ${VERSION}`, detail: `Sree Venkateswara Logistics – Transport & Logistics ERP\n\nMode: ${config?.mode || "-"}\nFiles & backups: ${home}\nDatabase: ${pgData}` }) },
+      { label: `About A Prime Transport ERP ${VERSION}`, click: () => dialog.showMessageBox(win, { type: "info", title: "About", message: `A Prime Transport ERP ${VERSION}`, detail: `Transport management software · licensed to Sree Venkateswara Logistics\n\nMode: ${config?.mode || "-"}\nFiles & backups: ${home}\nDatabase: ${pgData}` }) },
     ] },
   ]));
 }
@@ -258,7 +261,7 @@ function menu() {
 app.whenReady().then(async () => {
   menu();
   win = new BrowserWindow({
-    width: 1400, height: 880, title: `SVL ERP`, icon: path.join(__dirname, "icon.png"),
+    width: 1400, height: 880, title: `A Prime Transport ERP`, icon: path.join(__dirname, "icon.png"),
     webPreferences: { preload: path.join(__dirname, "preload.cjs"), contextIsolation: true, nodeIntegration: false, sandbox: true },
   });
   win.webContents.setWindowOpenHandler(({ url }) => {

@@ -240,7 +240,7 @@ def export_all(db: Session = Depends(get_db), user: CurrentUser = Depends(requir
     wb.save(buf)
     log(db, user, "export", "all", None)
     db.commit()
-    return Response(buf.getvalue(), media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", headers={"Content-Disposition": f'attachment; filename="SVL_ERP_EXPORT_{date.today()}.xlsx"'})
+    return Response(buf.getvalue(), media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", headers={"Content-Disposition": f'attachment; filename="A_PRIME_ERP_EXPORT_{date.today()}.xlsx"'})
 
 
 # ------------------------------------------------------------------ customer portal

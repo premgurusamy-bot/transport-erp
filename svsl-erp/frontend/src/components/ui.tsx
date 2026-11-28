@@ -67,7 +67,7 @@ export function Card({ title, actions, children, className }: { title?: React.Re
 }
 
 export function Page({ title, actions, children, sub }: { title: string; actions?: React.ReactNode; children: React.ReactNode; sub?: React.ReactNode }) {
-  useEffect(() => { document.title = `${title} – SVL ERP`; }, [title]);
+  useEffect(() => { document.title = `${title} – A Prime Transport ERP`; }, [title]);
   const group = groupOf(window.location.pathname, window.location.search);
   return <div className="page"><div className="page-h"><div>{group && group !== title && <div className="crumb">{t(group)} › {t(title)}</div>}<h1>{t(title)}</h1>{sub && <div className="muted small" style={{ marginTop: 3 }}>{sub}</div>}</div><div className="row gap wrap">{actions}</div></div>{children}</div>;
 }

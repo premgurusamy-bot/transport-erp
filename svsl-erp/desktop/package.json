@@ -1,8 +1,8 @@
 {
   "name": "svsl-erp-desktop",
-  "productName": "SVL ERP",
+  "productName": "A Prime Transport ERP",
   "version": "1.0.0",
-  "description": "Sree Venkateswara Logistics ERP – Windows desktop app",
+  "description": "A Prime Transport ERP – Windows desktop app",
   "main": "main.cjs",
   "private": true,
   "license": "UNLICENSED",
@@ -17,22 +17,22 @@
   },
   "build": {
     "appId": "in.svsl.erp",
-    "productName": "SVL ERP",
+    "productName": "A Prime Transport ERP",
     "copyright": "Sree Venkateswara Logistics",
     "directories": { "output": "release" },
-    "files": ["main.cjs", "pgctl.cjs", "preload.cjs", "setup.html", "starting.html", "icon.png", "package.json"],
+    "files": ["main.cjs", "pgctl.cjs", "preload.cjs", "setup.html", "starting.html", "icon.png", "emblem.png", "poster.jpg", "package.json"],
     "extraResources": [
       { "from": "res/server", "to": "server" },
       { "from": "res/pgsql", "to": "pgsql" },
       { "from": "res/web", "to": "web" }
     ],
-    "win": { "target": "nsis", "icon": "icon.png", "artifactName": "SVL-ERP-Setup-${version}.exe" },
+    "win": { "target": "nsis", "icon": "icon.png", "artifactName": "A-Prime-Transport-ERP-Setup-${version}.exe" },
     "nsis": {
       "oneClick": false,
       "perMachine": true,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
-      "shortcutName": "SVL ERP",
+      "shortcutName": "A Prime Transport ERP",
       "deleteAppDataOnUninstall": false,
       "include": "installer.nsh"
     }

@@ -68,7 +68,7 @@ export default function Layout() {
   return <div className="app">
     <header className="top">
       <button className="icon-btn burger" aria-label="Menu" onClick={toggleMenu}><Icon name="menu" size={20} /></button>
-      <NavLink to="/" className="brand"><img src="/api/company/logo" alt="" onError={(e) => ((e.target as HTMLImageElement).style.display = "none")} /><div><b>SVL ERP</b><small>Sree Venkateswara Logistics</small></div></NavLink>
+      <NavLink to="/" className="brand"><img src="/brand/emblem-64.png" alt="A Prime Transport ERP" className="emblem" /><div><b>A Prime Transport ERP</b><small>Sree Venkateswara Logistics</small></div></NavLink>
       <GlobalSearch />
       <div className="grow" />
       <select className="hide-s" aria-label={t("Language")} value={getLang()} onChange={(e) => { setLang(e.target.value); force((x) => x + 1); }}><option value="en">English</option><option value="ta">தமிழ்</option></select>

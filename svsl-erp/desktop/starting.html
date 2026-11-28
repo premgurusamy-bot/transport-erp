@@ -1,10 +1,10 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8" /><title>SVL ERP</title>
+<html lang="en"><head><meta charset="utf-8" /><title>A Prime Transport ERP</title>
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'unsafe-inline'; script-src 'unsafe-inline'" />
 <style>
-  body { margin: 0; font-family: "Segoe UI", Arial, sans-serif; background: #0f4c81; color: #fff; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-  .spin { width: 42px; height: 42px; border: 4px solid rgba(255,255,255,.3); border-top-color: #f5a623; border-radius: 50%; animation: s 1s linear infinite; margin-bottom: 18px; }
+  body { margin: 0; font-family: "Segoe UI", Arial, sans-serif; background: radial-gradient(900px 500px at 50% 0%, #1f4a97, transparent), linear-gradient(160deg, #0b1f4d, #12306a); color: #fff; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  .spin { width: 42px; height: 42px; border: 4px solid rgba(255,255,255,.3); border-top-color: #e0a526; border-radius: 50%; animation: s 1s linear infinite; margin-bottom: 18px; }
   @keyframes s { to { transform: rotate(360deg); } } h1 { font-size: 20px; margin: 0 0 6px; } #st { opacity: .85; }
 </style></head>
-<body><div class="spin"></div><h1>Sree Venkateswara Logistics ERP</h1><div id="st">Starting…</div>
+<body><img src="emblem.png" alt="" style="width:150px;height:150px;margin-bottom:22px" /><div class="spin"></div><h1>A Prime Transport ERP</h1><div style="opacity:.8;margin-bottom:8px">Sree Venkateswara Logistics</div><div id="st">Starting…</div>
 <script>window.svsl.onStatus(function (t) { document.getElementById("st").textContent = t; });</script></body></html>

@@ -1,4 +1,4 @@
-# Sree Venkateswara Logistics ERP (svsl-erp/): backend tests on PostgreSQL + frontend type-check & build.
+# A Prime Transport ERP (svsl-erp/): backend tests on PostgreSQL + frontend type-check & build.
 name: svsl-erp
 
 permissions:
@@ -46,12 +46,12 @@ jobs:
           psql postgresql://postgres:postgres@localhost:5432/postgres -c "CREATE DATABASE svsl_sample"
           mkdir -p "$RUNNER_TEMP/sample-files" "$RUNNER_TEMP/sample-backups"
           DATABASE_URL=postgresql+psycopg://postgres:postgres@localhost:5432/svsl_sample STORAGE_DIR="$RUNNER_TEMP/sample-files" BACKUP_DIR="$RUNNER_TEMP/sample-backups" \
-            RUN_SCHEDULER=false SECRET_KEY=sample-build-key-0123456789-0123456789-0123456789 python svsl_server.py sample-backup SVL_ERP_SAMPLE_DATA.zip
+            RUN_SCHEDULER=false SECRET_KEY=sample-build-key-0123456789-0123456789-0123456789 python svsl_server.py sample-backup A_PRIME_ERP_SAMPLE_DATA.zip
       - uses: actions/upload-artifact@v4
         if: github.event_name != 'pull_request'
         with:
-          name: SVL-ERP-Sample-Data
-          path: svsl-erp/backend/SVL_ERP_SAMPLE_DATA.zip
+          name: A-Prime-ERP-Sample-Data
+          path: svsl-erp/backend/A_PRIME_ERP_SAMPLE_DATA.zip
 
   frontend:
     runs-on: ubuntu-latest
@@ -160,7 +160,7 @@ jobs:
           npm run dist:win
       - uses: actions/upload-artifact@v4
         with:
-          name: SVL-ERP-Windows-Installer
+          name: A-Prime-Transport-ERP-Windows-Installer
           path: svsl-erp/desktop/release/*.exe
 
   android-apk:
@@ -183,11 +183,11 @@ jobs:
           cd android
           chmod +x gradlew
           ./gradlew assembleDebug --no-daemon
-          cp app/build/outputs/apk/debug/app-debug.apk ../SVL-ERP.apk
+          cp app/build/outputs/apk/debug/app-debug.apk ../A-Prime-Transport-ERP.apk
       - uses: actions/upload-artifact@v4
         with:
-          name: SVL-ERP-Android-APK
-          path: svsl-erp/mobile/SVL-ERP.apk
+          name: A-Prime-Transport-ERP-Android-APK
+          path: svsl-erp/mobile/A-Prime-Transport-ERP.apk
 
   release:
     needs: [backend, windows-installer, android-apk]
@@ -202,12 +202,12 @@ jobs:
         with:
           tag_name: svsl-erp-build-${{ github.run_number }}
           target_commitish: ${{ github.sha }}
-          name: SVL ERP build ${{ github.run_number }}
+          name: A Prime Transport ERP build ${{ github.run_number }}
           prerelease: true
           body: |
-            **Windows:** download `SVL-ERP-Setup-1.0.0.exe` and run it on the main office computer (it includes the database and server).
-            **Android:** download `SVL-ERP.apk` on the phone and install it (allow "Install unknown apps" when asked), then enter the address shown on the office computer under Help → Phone connection.
-            **Sample data:** `SVL_ERP_SAMPLE_DATA.zip` – three months of DEMO data for training. Load it with Admin → Backup → Restore from file (your users, company profile and settings are kept); remove it with Admin → Backup → Factory reset.
+            **Windows:** download `A-Prime-Transport-ERP-Setup-1.0.0.exe` and run it on the main office computer (it includes the database and server).
+            **Android:** download `A-Prime-Transport-ERP.apk` on the phone and install it (allow "Install unknown apps" when asked), then enter the address shown on the office computer under Help → Phone connection.
+            **Sample data:** `A_PRIME_ERP_SAMPLE_DATA.zip` – three months of DEMO data for training. Load it with Admin → Backup → Restore from file (your users, company profile and settings are kept); remove it with Admin → Backup → Factory reset.
             Built from commit ${{ github.sha }}.
           files: |
             out/*.exe

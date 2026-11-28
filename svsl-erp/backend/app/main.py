@@ -62,7 +62,7 @@ async def lifespan(app: FastAPI):
 
 def create_app() -> FastAPI:
     s = get_settings()
-    app = FastAPI(title="Sree Venkateswara Logistics ERP", version="1.0.0", description="Transport & Logistics ERP – REST API. Authenticate with POST /api/auth/login and send `Authorization: Bearer <token>`.", lifespan=lifespan)
+    app = FastAPI(title="A Prime Transport ERP", version="1.0.0", description="Transport & Logistics ERP – REST API. Authenticate with POST /api/auth/login and send `Authorization: Bearer <token>`.", lifespan=lifespan)
     app.add_middleware(CORSMiddleware, allow_origins=s.cors_origins, allow_credentials=False, allow_methods=["*"], allow_headers=["*"])
 
     @app.middleware("http")

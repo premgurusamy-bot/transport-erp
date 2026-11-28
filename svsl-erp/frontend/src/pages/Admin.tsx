@@ -186,7 +186,7 @@ export function Backup() {
       <div className="grid2" style={{ marginBottom: 0 }}>
         <div>
           <h4 style={{ marginTop: 0 }}>Try the ERP with sample data</h4>
-          <p className="small">Download <b>SVL_ERP_SAMPLE_DATA.zip</b> (on the same download page as the installer) and load it with <b>Restore from file</b>. It contains three months of DEMO customers, vehicles, drivers, trips, LRs, invoices, receipts, maintenance and payroll. Your users, passwords, company profile and settings are kept.</p>
+          <p className="small">Download <b>A_PRIME_ERP_SAMPLE_DATA.zip</b> (on the same download page as the installer) and load it with <b>Restore from file</b>. It contains three months of DEMO customers, vehicles, drivers, trips, LRs, invoices, receipts, maintenance and payroll. Your users, passwords, company profile and settings are kept.</p>
         </div>
         <div>
           <h4 style={{ marginTop: 0 }}>Factory reset</h4>

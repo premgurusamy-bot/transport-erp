@@ -10,7 +10,7 @@ function Shell({ title, children }: { title: string; children: React.ReactNode }
   const nav = useNavigate();
   const [, force] = useState(0);
   return <div className="portal">
-    <header className="top"><img src="/api/company/logo" alt="" className="mini-logo" onError={(e) => ((e.target as HTMLImageElement).style.display = "none")} /><b className="portal-title">{title}</b><div className="grow" />
+    <header className="top"><img src="/brand/emblem-64.png" alt="A Prime Transport ERP" className="mini-logo emblem" /><b className="portal-title">{title}</b><div className="grow" />
       <select value={getLang()} onChange={(e) => { setLang(e.target.value); force((x) => x + 1); }}><option value="en">EN</option><option value="ta">த</option></select>
       <ThemePicker />
       <button className="btn ghost sm hide-s" onClick={() => nav("/profile")}>{auth.user?.full_name}</button>
